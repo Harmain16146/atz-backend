@@ -1,19 +1,61 @@
 "use client";
 
-import { useState } from "react";
-import { Tabs, Form, Input, Button, Table, Upload, message, Image } from "antd";
-import { UploadOutlined } from "@ant-design/icons";
-import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import { useState, useEffect, useRef } from "react";
+import {
+  Tabs,
+  Form,
+  Input,
+  Button,
+  Table,
+  Upload,
+  message,
+  Image,
+  Modal,
+  Row,
+  Col,
+  QRCode,
+} from "antd";
+import { DownloadOutlined, UploadOutlined } from "@ant-design/icons";
 import { collection, addDoc, query, where, getDocs } from "firebase/firestore";
-import { db, storage } from "../firebase.config";
+import { db } from "../firebase.config";
 
 const { TabPane } = Tabs;
+const QR_CODE_URL = "https://atz-rosy.vercel.app/";
 
 export default function Home() {
   const [form] = Form.useForm();
   const [members, setMembers] = useState([]);
   const [imageUrl, setImageUrl] = useState("");
-  const [loading, setLoading] = useState(false); // Loading state
+  const [loading, setLoading] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
+  const [selectedMemberData, setSelectedMemberData] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const qrCodeRef = useRef(null); // Ref to access the QRCode component
+
+  console.log("====================================");
+  console.log("qrcode URL", QR_CODE_URL);
+  console.log("====================================");
+
+  useEffect(() => {
+    fetchMembers();
+  }, []);
+
+  function doDownload(url, fileName) {
+    const a = document.createElement("a");
+    a.download = fileName;
+    a.href = url;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  const downloadCanvasQRCode = () => {
+    const canvas = document.getElementById("qrCanvas")?.querySelector("canvas");
+    if (canvas) {
+      const url = canvas.toDataURL("image/png");
+      doDownload(url, "QRCode.png");
+    }
+  };
 
   const columns = [
     { title: "Member Name", dataIndex: "member_name", key: "member_name" },
@@ -29,103 +71,109 @@ export default function Home() {
       key: "membership_number",
     },
     { title: "CNIC Number", dataIndex: "cnic_number", key: "cnic_number" },
-    { title: "View Data", dataIndex: "view_data", key: "view_data" },
+    {
+      title: "View Data",
+      key: "view_data",
+      render: (_, member) => (
+        <>
+          <Button
+            type="primary"
+            style={{ marginRight: 10 }}
+            onClick={() => {
+              setSelectedMemberData(member);
+              setIsVisible(true);
+            }}
+          >
+            View
+          </Button>
+          <Button
+            type="primary"
+            danger
+            onClick={() => handleEditMember(member)}
+          >
+            Edit
+          </Button>
+        </>
+      ),
+    },
   ];
-  const data = members.map((member) => ({
-    key: member.id, // Use the Firestore document ID as the key
-    member_name: member.member_name,
-    business_name: member.business_name,
-    phone_number: member.phone_number,
-    membership_number: member.membership_number,
-    cnic_number: member.cnic_number,
-    view_data: (
-      <Button
-        type="primary"
-        onClick={() => handleViewData(member)} // Function to handle view action
-      >
-        View
-      </Button>
-    ),
-  }));
+
+  const handlePreview = (file) => {
+    setImageUrl(URL.createObjectURL(file));
+  };
+
+  const onFinish = async (values) => {
+    setLoading(true);
+    try {
+      const fileList = values.photo_url?.fileList || [];
+      if (fileList.length === 0) {
+        throw new Error("No file selected");
+      }
+      const file = fileList[0].originFileObj;
+      const base64String = await convertToBase64(file);
+
+      const existingMemberQuery = query(
+        collection(db, "members"),
+        where("cnic_number", "==", values.cnic_number)
+      );
+      const querySnapshot = await getDocs(existingMemberQuery);
+
+      if (!querySnapshot.empty) {
+        message.error("This CNIC number already exists.");
+        setLoading(false);
+        return;
+      }
+
+      const qrcodeUrl = `${QR_CODE_URL}${cnic_number}`;
+
+      await addDoc(collection(db, "members"), {
+        ...values,
+        photo_url: base64String,
+        qrcode_url: qrcodeUrl,
+      });
+
+      message.success("Member added successfully!");
+      fetchMembers(); // Refresh the members list
+    } catch (error) {
+      message.error("Error adding member.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchMembers = async () => {
+    setLoading(true);
+    try {
+      const querySnapshot = await getDocs(collection(db, "members"));
+      const membersData = [];
+      querySnapshot.forEach((doc) => {
+        membersData.push({ key: doc.id, ...doc.data() });
+      });
+      setMembers(membersData);
+    } catch (error) {
+      message.error("Error fetching members");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const convertToBase64 = (file) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.readAsDataURL(file); // file should be of type Blob
+      reader.readAsDataURL(file);
       reader.onload = () => resolve(reader.result);
       reader.onerror = (error) => reject(error);
     });
   };
 
-  const onFinish = async (values) => {
-    setLoading(true); // Set loading to true when submitting the form
+  const filteredMembers = members.filter((member) =>
+    member.member_name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-    try {
-      // Extract the file object from Upload component
-      const fileList = values.photo_url?.fileList || [];
-      if (fileList.length === 0) {
-        throw new Error("No file selected");
-      }
-
-      // Use the first file in the list
-      const file = fileList[0].originFileObj;
-
-      // Convert to Base64
-      const base64String = await convertToBase64(file);
-
-      // Check if the CNIC number already exists in Firestore
-      const q = query(
-        collection(db, "members"),
-        where("cnic_number", "==", values.cnic_number)
-      );
-      const querySnapshot = await getDocs(q);
-
-      if (!querySnapshot.empty) {
-        // CNIC already exists
-        message.error("This CNIC number already exists.");
-        setLoading(false); // Set loading to false if CNIC exists
-        return; // Exit the function if CNIC exists
-      }
-
-      // Add document to Firestore if CNIC doesn't exist
-      const docRef = await addDoc(collection(db, "members"), {
-        ...values,
-        photo_url: base64String, // Storing the Base64 string
-      });
-      message.success("Member added successfully!");
-      setLoading(false); // Set loading to false after submission
-    } catch (error) {
-      console.error("Error adding document: ", error);
-      message.error("Error adding member.");
-      setLoading(false); // Set loading to false if there's an error
-    }
-  };
-
-  const fetchMembers = async () => {
-    setLoading(true); // Set loading state to true
-    try {
-      // Fetch data from Firestore
-      const querySnapshot = await getDocs(collection(db, "members"));
-      const membersData = [];
-
-      querySnapshot.forEach((doc) => {
-        // Get data from each document and add to membersData array
-        membersData.push({
-          key: doc.id, // You can use the Firestore document ID as the key
-          ...doc.data(),
-        });
-      });
-
-      setMembers(membersData); // Set the fetched data to the state
-    } catch (error) {
-      message.error("Error fetching members");
-    } finally {
-      setLoading(false); // Set loading state back to false after fetch is complete
-    }
-  };
-
-  const handlePreview = (file) => {
-    setImageUrl(URL.createObjectURL(file));
+  const handleEditMember = (member) => {
+    form.setFieldsValue(member);
+    setSelectedMemberData(member);
+    setIsVisible(true);
   };
 
   return (
@@ -252,24 +300,102 @@ export default function Home() {
             </Form.Item>
           </Form>
         </TabPane>
-
         <TabPane tab="Members List" key="2">
-          <Button
-            type="primary"
-            onClick={fetchMembers}
+          <Input
+            placeholder="Search members by name"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
             className="mb-4"
-            loading={loading}
-          >
-            Refresh Data
-          </Button>
+          />
           <Table
             columns={columns}
-            dataSource={data}
-            rowKey="id"
-            scroll={{ x: true }}
+            dataSource={filteredMembers}
+            rowKey="key"
+            loading={loading}
           />
         </TabPane>
       </Tabs>
+      <Modal
+        visible={isVisible}
+        title="Personal Information"
+        onCancel={() => setIsVisible(false)}
+        footer={null}
+        width={800}
+        centered
+      >
+        {selectedMemberData && (
+          <div
+            style={{
+              padding: "20px",
+              backgroundColor: "#f9f9f9",
+              borderRadius: "8px",
+            }}
+          >
+            <Row gutter={[16, 16]}>
+              <Col span={16}>
+                <div
+                  style={{
+                    padding: "16px",
+                    backgroundColor: "#fff",
+                    borderRadius: "8px",
+                    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+                  }}
+                >
+                  <p>
+                    <strong>Member Name:</strong>{" "}
+                    {selectedMemberData.member_name}
+                  </p>
+                  <p>
+                    <strong>Business Name:</strong>{" "}
+                    {selectedMemberData.business_name}
+                  </p>
+                  <p>
+                    <strong>Phone Number:</strong>{" "}
+                    {selectedMemberData.phone_number}
+                  </p>
+                  <p>
+                    <strong>Membership Number:</strong>{" "}
+                    {selectedMemberData.membership_number}
+                  </p>
+                  <p>
+                    <strong>CNIC Number:</strong>{" "}
+                    {selectedMemberData.cnic_number}
+                  </p>
+                </div>
+              </Col>
+              <Col span={8} style={{ textAlign: "center" }}>
+                <Image
+                  src={selectedMemberData.photo_url}
+                  width={120}
+                  height={120}
+                  alt="Member Photo"
+                  style={{ borderRadius: "50%", marginBottom: "16px" }}
+                />
+                <div
+                  id="qrCanvas"
+                  style={{
+                    display: "flex", // Use flexbox for alignment
+                    justifyContent: "center", // Center horizontally
+                    alignItems: "center", // Center vertically
+                    height: "150px", // Set a specific height to center vertically
+                    marginBottom: "16px",
+                    textAlign: "center",
+                  }}
+                >
+                  <QRCode value={selectedMemberData.qrcode_url} size={128} />
+                </div>
+                <Button
+                  type="primary"
+                  icon={<DownloadOutlined />}
+                  onClick={downloadCanvasQRCode}
+                >
+                  Download QR Code
+                </Button>
+              </Col>
+            </Row>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
