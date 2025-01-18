@@ -30,11 +30,6 @@ export default function Home() {
   const [isVisible, setIsVisible] = useState(false);
   const [selectedMemberData, setSelectedMemberData] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const qrCodeRef = useRef(null); // Ref to access the QRCode component
-
-  console.log("====================================");
-  console.log("qrcode URL", QR_CODE_URL);
-  console.log("====================================");
 
   useEffect(() => {
     fetchMembers();
@@ -124,7 +119,7 @@ export default function Home() {
         return;
       }
 
-      const qrcodeUrl = `${QR_CODE_URL}${cnic_number}`;
+      const qrcodeUrl = `${QR_CODE_URL}${values.cnic_number}`;
 
       await addDoc(collection(db, "members"), {
         ...values,
