@@ -8,19 +8,55 @@ import {
   Button,
   Table,
   Upload,
-  message,
   Image,
   Modal,
   Row,
   Col,
   QRCode,
+  message,
+  Select,
 } from "antd";
 import { DownloadOutlined, UploadOutlined } from "@ant-design/icons";
-import { collection, addDoc, query, where, getDocs } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  query,
+  where,
+  getDocs,
+  orderBy,
+  limit,
+} from "firebase/firestore";
 import { db } from "../firebase.config";
 
 const { TabPane } = Tabs;
-const QR_CODE_URL = "https://atz-rosy.vercel.app/";
+const QR_CODE_URL = "https://atzgoldsmith.com/memberinfo/";
+
+const businessCategories = [
+  {
+    label: "Polishing",
+    value: "Polishing",
+  },
+  {
+    label: "Stone Setting",
+    value: "Stone Setting",
+  },
+  {
+    label: "Plain Jewelry",
+    value: "Plain Jewelry",
+  },
+  {
+    label: "Simple Jewelry Work",
+    value: "Simple Jewelry Work",
+  },
+  {
+    label: "Artificial Stone Setting",
+    value: "Artificial Stone Setting",
+  },
+  {
+    label: "Artificial Jewelry",
+    value: "Artificial Jewelry",
+  },
+];
 
 export default function Home() {
   const [form] = Form.useForm();
@@ -30,25 +66,87 @@ export default function Home() {
   const [isVisible, setIsVisible] = useState(false);
   const [selectedMemberData, setSelectedMemberData] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [isFirstMember, setIsFirstMember] = useState(false);
 
   useEffect(() => {
     fetchMembers();
+    checkFirstMember();
   }, []);
 
-  function doDownload(url, fileName) {
-    const a = document.createElement("a");
-    a.download = fileName;
-    a.href = url;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  }
+  const checkFirstMember = async () => {
+    try {
+      const membersRef = collection(db, "members");
+      const q = query(membersRef);
+      const querySnapshot = await getDocs(q);
+      setIsFirstMember(querySnapshot.empty);
 
-  const downloadCanvasQRCode = () => {
-    const canvas = document.getElementById("qrCanvas")?.querySelector("canvas");
-    if (canvas) {
-      const url = canvas.toDataURL("image/png");
-      doDownload(url, "QRCode.png");
+      if (querySnapshot.empty) {
+        form.setFieldsValue({
+          membership_number: "",
+        });
+      } else {
+        getNextMembershipNumber();
+      }
+    } catch (error) {
+      console.error("Error checking first member:", error);
+      message.error("Error checking database");
+    }
+  };
+
+  const getNextMembershipNumber = async () => {
+    try {
+      const membersRef = collection(db, "members");
+      const q = query(
+        membersRef,
+        orderBy("membership_number", "desc"),
+        limit(1)
+      );
+      const querySnapshot = await getDocs(q);
+
+      let nextNumber = "1001"; // Default starting number
+
+      if (!querySnapshot.empty) {
+        const lastDoc = querySnapshot.docs[0];
+        const lastNumber = parseInt(lastDoc.data().membership_number);
+        nextNumber = (lastNumber + 1).toString();
+      }
+
+      form.setFieldsValue({
+        membership_number: nextNumber,
+      });
+    } catch (error) {
+      console.error("Error getting next membership number:", error);
+      message.error("Error generating membership number");
+    }
+  };
+
+  const handleUpdatePdf = async () => {
+    try {
+      // Sending selectedMemberData to the API route
+      const response = await fetch("/api/modify-pdf", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json", // Indicating that we're sending JSON data
+        },
+        body: JSON.stringify({
+          memberName: selectedMemberData.member_name,
+          businessName: selectedMemberData.business_name,
+          phoneNumber: selectedMemberData.phone_number,
+          membershipNumber: selectedMemberData.membership_number,
+          cnicNumber: selectedMemberData.cnic_number,
+          qrCodeUrl: selectedMemberData.qrcode_url,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        console.log("PDF modified successfully! Check the output file.");
+      } else {
+        console.log("Error: " + data.message);
+      }
+    } catch (error) {
+      console.log("Error: " + error.message);
     }
   };
 
@@ -80,13 +178,6 @@ export default function Home() {
             }}
           >
             View
-          </Button>
-          <Button
-            type="primary"
-            danger
-            onClick={() => handleEditMember(member)}
-          >
-            Edit
           </Button>
         </>
       ),
@@ -128,9 +219,11 @@ export default function Home() {
       });
 
       message.success("Member added successfully!");
+      form.resetFields();
       fetchMembers(); // Refresh the members list
+      getNextMembershipNumber(); // Get next membership number after adding new member
     } catch (error) {
-      message.error("Error adding member.");
+      message.error("Error adding member.", error);
     } finally {
       setLoading(false);
     }
@@ -207,19 +300,6 @@ export default function Home() {
             )}
 
             <Form.Item
-              name="business_category"
-              label="Business Category"
-              rules={[
-                {
-                  required: true,
-                  message: "Please enter the business category",
-                },
-              ]}
-            >
-              <Input placeholder="Enter business category" />
-            </Form.Item>
-
-            <Form.Item
               name="member_name"
               label="Member Name"
               rules={[{ required: true }]}
@@ -236,8 +316,8 @@ export default function Home() {
             </Form.Item>
 
             <Form.Item
-              name="business_name"
-              label="Business Name"
+              name="cnic_number"
+              label="CNIC Number"
               rules={[{ required: true }]}
             >
               <Input />
@@ -246,6 +326,30 @@ export default function Home() {
             <Form.Item
               name="phone_number"
               label="Phone Number"
+              rules={[{ required: true }]}
+            >
+              <Input />
+            </Form.Item>
+
+            <Form.Item
+              name="business_category"
+              label="Business Category"
+              rules={[
+                {
+                  required: true,
+                  message: "Please select the business category",
+                },
+              ]}
+            >
+              <Select
+                placeholder="Select business category"
+                options={businessCategories}
+              />
+            </Form.Item>
+
+            <Form.Item
+              name="business_name"
+              label="Business Name"
               rules={[{ required: true }]}
             >
               <Input />
@@ -264,15 +368,7 @@ export default function Home() {
               label="Membership Number"
               rules={[{ required: true }]}
             >
-              <Input />
-            </Form.Item>
-
-            <Form.Item
-              name="cnic_number"
-              label="CNIC Number"
-              rules={[{ required: true }]}
-            >
-              <Input />
+              <Input disabled={!isFirstMember} />
             </Form.Item>
 
             <Form.Item
@@ -345,6 +441,14 @@ export default function Home() {
                     {selectedMemberData.business_name}
                   </p>
                   <p>
+                    <strong>Business Address:</strong>{" "}
+                    {selectedMemberData.business_address}
+                  </p>
+                  <p>
+                    <strong>Home Address:</strong>{" "}
+                    {selectedMemberData.home_address}
+                  </p>
+                  <p>
                     <strong>Phone Number:</strong>{" "}
                     {selectedMemberData.phone_number}
                   </p>
@@ -355,6 +459,13 @@ export default function Home() {
                   <p>
                     <strong>CNIC Number:</strong>{" "}
                     {selectedMemberData.cnic_number}
+                  </p>
+                  <p>
+                    <strong>Registration Date:</strong>{" "}
+                    {selectedMemberData.registration_date}
+                  </p>
+                  <p>
+                    <strong>Status:</strong> {selectedMemberData.status}
                   </p>
                 </div>
               </Col>
@@ -369,10 +480,10 @@ export default function Home() {
                 <div
                   id="qrCanvas"
                   style={{
-                    display: "flex", // Use flexbox for alignment
-                    justifyContent: "center", // Center horizontally
-                    alignItems: "center", // Center vertically
-                    height: "150px", // Set a specific height to center vertically
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    height: "150px",
                     marginBottom: "16px",
                     textAlign: "center",
                   }}
@@ -382,7 +493,7 @@ export default function Home() {
                 <Button
                   type="primary"
                   icon={<DownloadOutlined />}
-                  onClick={downloadCanvasQRCode}
+                  onClick={handleUpdatePdf}
                 >
                   Download QR Code
                 </Button>
