@@ -33,6 +33,10 @@ const QR_CODE_URL = "https://atzgoldsmith.com/memberinfo/";
 
 const businessCategories = [
   {
+    label: "Business Owner",
+    value: "Business Owner",
+  },
+  {
     label: "Polishing",
     value: "Polishing",
   },
@@ -55,6 +59,17 @@ const businessCategories = [
   {
     label: "Artificial Jewelry",
     value: "Artificial Jewelry",
+  },
+];
+
+const memberCategories = [
+  {
+    label: "Associate Class",
+    value: "Associate Class",
+  },
+  {
+    label: "Worker Class",
+    value: "Worker Class",
   },
 ];
 
@@ -348,6 +363,22 @@ export default function Home() {
             </Form.Item>
 
             <Form.Item
+              name="member_category"
+              label="Member Category"
+              rules={[
+                {
+                  required: true,
+                  message: "Please select the member category",
+                },
+              ]}
+            >
+              <Select
+                placeholder="Select member category"
+                options={memberCategories}
+              />
+            </Form.Item>
+
+            <Form.Item
               name="business_name"
               label="Business Name"
               rules={[{ required: true }]}
@@ -459,13 +490,6 @@ export default function Home() {
                   <p>
                     <strong>CNIC Number:</strong>{" "}
                     {selectedMemberData.cnic_number}
-                  </p>
-                  <p>
-                    <strong>Registration Date:</strong>{" "}
-                    {selectedMemberData.registration_date}
-                  </p>
-                  <p>
-                    <strong>Status:</strong> {selectedMemberData.status}
                   </p>
                 </div>
               </Col>
