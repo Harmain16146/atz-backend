@@ -150,15 +150,18 @@ export default function Home() {
           >
             View
           </Button>
-          {/* <Button
+          <Button
             type="secondary"
-            style={{ marginRight: 10 }}
+            style={{
+              marginRight: 10,
+              border: "2px dotted red", // Dotted red border
+            }}
             onClick={() => {
               handleEditMember(member);
             }}
           >
             Edit
-          </Button> */}
+          </Button>
         </>
       ),
     },
