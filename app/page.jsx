@@ -25,6 +25,8 @@ import {
   getDocs,
   orderBy,
   limit,
+  setDoc,
+  doc,
 } from "firebase/firestore";
 import { db } from "../firebase.config";
 
@@ -75,65 +77,19 @@ const memberCategories = [
 
 export default function Home() {
   const [form] = Form.useForm();
+  const [editForm] = Form.useForm();
   const [members, setMembers] = useState([]);
   const [imageUrl, setImageUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const [selectedMemberData, setSelectedMemberData] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [isFirstMember, setIsFirstMember] = useState(false);
+  const [isEditable, setIsEditable] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
 
   useEffect(() => {
     fetchMembers();
-    checkFirstMember();
   }, []);
-
-  const checkFirstMember = async () => {
-    try {
-      const membersRef = collection(db, "members");
-      const q = query(membersRef);
-      const querySnapshot = await getDocs(q);
-      setIsFirstMember(querySnapshot.empty);
-
-      if (querySnapshot.empty) {
-        form.setFieldsValue({
-          membership_number: "",
-        });
-      } else {
-        getNextMembershipNumber();
-      }
-    } catch (error) {
-      console.error("Error checking first member:", error);
-      message.error("Error checking database");
-    }
-  };
-
-  const getNextMembershipNumber = async () => {
-    try {
-      const membersRef = collection(db, "members");
-      const q = query(
-        membersRef,
-        orderBy("membership_number", "desc"),
-        limit(1)
-      );
-      const querySnapshot = await getDocs(q);
-
-      let nextNumber = "1001"; // Default starting number
-
-      if (!querySnapshot.empty) {
-        const lastDoc = querySnapshot.docs[0];
-        const lastNumber = parseInt(lastDoc.data().membership_number);
-        nextNumber = (lastNumber + 1).toString();
-      }
-
-      form.setFieldsValue({
-        membership_number: nextNumber,
-      });
-    } catch (error) {
-      console.error("Error getting next membership number:", error);
-      message.error("Error generating membership number");
-    }
-  };
 
   const handleUpdatePdf = async () => {
     try {
@@ -194,6 +150,15 @@ export default function Home() {
           >
             View
           </Button>
+          {/* <Button
+            type="secondary"
+            style={{ marginRight: 10 }}
+            onClick={() => {
+              handleEditMember(member);
+            }}
+          >
+            Edit
+          </Button> */}
         </>
       ),
     },
@@ -210,14 +175,24 @@ export default function Home() {
       if (fileList.length === 0) {
         throw new Error("No file selected");
       }
+
       const file = fileList[0].originFileObj;
       const base64String = await convertToBase64(file);
 
+      // Check if CNIC or Membership Number already exists
       const existingMemberQuery = query(
         collection(db, "members"),
         where("cnic_number", "==", values.cnic_number)
       );
       const querySnapshot = await getDocs(existingMemberQuery);
+
+      const existingMembershipNumberQuery = query(
+        collection(db, "members"),
+        where("membership_number", "==", values.membership_number)
+      );
+      const membershipNumberSnapShot = await getDocs(
+        existingMembershipNumberQuery
+      );
 
       if (!querySnapshot.empty) {
         message.error("This CNIC number already exists.");
@@ -225,9 +200,15 @@ export default function Home() {
         return;
       }
 
+      if (!membershipNumberSnapShot.empty) {
+        message.error("This Membership number already exists.");
+        setLoading(false);
+        return;
+      }
+
       const qrcodeUrl = `${QR_CODE_URL}${values.cnic_number}`;
 
-      await addDoc(collection(db, "members"), {
+      await setDoc(doc(db, "members", values.cnic_number), {
         ...values,
         photo_url: base64String,
         qrcode_url: qrcodeUrl,
@@ -235,10 +216,9 @@ export default function Home() {
 
       message.success("Member added successfully!");
       form.resetFields();
-      fetchMembers(); // Refresh the members list
-      getNextMembershipNumber(); // Get next membership number after adding new member
+      fetchMembers();
     } catch (error) {
-      message.error("Error adding member.", error);
+      message.error("Error adding member: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -274,9 +254,48 @@ export default function Home() {
   );
 
   const handleEditMember = (member) => {
-    form.setFieldsValue(member);
+    editForm.setFieldsValue(member);
     setSelectedMemberData(member);
-    setIsVisible(true);
+    setIsEditable(true);
+  };
+
+  const onEditFormFinish = async (values) => {
+    setEditLoading(true);
+    try {
+      const docRef = doc(db, "members", values.cnic_number);
+      let updatedPhotoUrl = values.photo_url;
+
+      // Check if a new photo is uploaded
+      if (values.photo_url?.fileList) {
+        const fileList = values.photo_url.fileList;
+        if (fileList.length > 0) {
+          const file = fileList[0].originFileObj;
+          updatedPhotoUrl = await convertToBase64(file);
+        }
+      }
+
+      const qrcodeUrl = `${QR_CODE_URL}${values.cnic_number}`;
+
+      // Update the existing member data
+      await setDoc(
+        docRef,
+        {
+          ...values,
+          photo_url: updatedPhotoUrl,
+          qrcode_url: qrcodeUrl,
+        },
+        { merge: true }
+      );
+
+      message.success("Member details updated successfully!");
+      form.resetFields();
+      fetchMembers();
+      setEditLoading(false);
+    } catch (error) {
+      message.error("Error updating member: " + error.message);
+    } finally {
+      setEditLoading(false);
+    }
   };
 
   return (
@@ -399,7 +418,7 @@ export default function Home() {
               label="Membership Number"
               rules={[{ required: true }]}
             >
-              <Input disabled={!isFirstMember} />
+              <Input />
             </Form.Item>
 
             <Form.Item
@@ -525,6 +544,150 @@ export default function Home() {
             </Row>
           </div>
         )}
+      </Modal>
+      <Modal
+        visible={isEditable}
+        title="Edit Information"
+        onCancel={() => setIsEditable(false)}
+        footer={null}
+        width={600}
+        centered
+      >
+        <Form
+          form={editForm}
+          layout="vertical"
+          onFinish={onEditFormFinish}
+          className="max-w-3xl mx-auto"
+        >
+          <Form.Item
+            name="photo_url"
+            label="Photo"
+            rules={[{ required: true, message: "Please upload a photo" }]}
+          >
+            <Upload
+              name="photo"
+              listType="picture"
+              maxCount={1}
+              beforeUpload={() => false}
+              onPreview={handlePreview}
+            >
+              <Button icon={<UploadOutlined />}>Upload Photo</Button>
+            </Upload>
+          </Form.Item>
+
+          {imageUrl && (
+            <div style={{ marginBottom: "16px" }}>
+              <Image src={imageUrl} width={200} preview={false} />
+            </div>
+          )}
+
+          <Form.Item
+            name="member_name"
+            label="Member Name"
+            rules={[{ required: true }]}
+          >
+            <Input />
+          </Form.Item>
+
+          <Form.Item
+            name="father_name"
+            label="Father Name"
+            rules={[{ required: true }]}
+          >
+            <Input />
+          </Form.Item>
+
+          <Form.Item
+            name="cnic_number"
+            label="CNIC Number"
+            rules={[{ required: true }]}
+          >
+            <Input />
+          </Form.Item>
+
+          <Form.Item
+            name="phone_number"
+            label="Phone Number"
+            rules={[{ required: true }]}
+          >
+            <Input />
+          </Form.Item>
+
+          <Form.Item
+            name="business_category"
+            label="Business Category"
+            rules={[
+              {
+                required: true,
+                message: "Please select the business category",
+              },
+            ]}
+          >
+            <Select
+              placeholder="Select business category"
+              options={businessCategories}
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="member_category"
+            label="Member Category"
+            rules={[
+              {
+                required: true,
+                message: "Please select the member category",
+              },
+            ]}
+          >
+            <Select
+              placeholder="Select member category"
+              options={memberCategories}
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="business_name"
+            label="Business Name"
+            rules={[{ required: true }]}
+          >
+            <Input />
+          </Form.Item>
+
+          <Form.Item
+            name="business_address"
+            label="Business Address"
+            rules={[{ required: true }]}
+          >
+            <Input.TextArea />
+          </Form.Item>
+
+          <Form.Item
+            name="membership_number"
+            label="Membership Number"
+            rules={[{ required: true }]}
+          >
+            <Input />
+          </Form.Item>
+
+          <Form.Item
+            name="home_address"
+            label="Home Address"
+            rules={[{ required: true }]}
+          >
+            <Input.TextArea />
+          </Form.Item>
+
+          <Form.Item>
+            <Button
+              type="primary"
+              htmlType="submit"
+              className="w-full"
+              loading={editLoading}
+            >
+              Submit
+            </Button>
+          </Form.Item>
+        </Form>
       </Modal>
     </div>
   );
