@@ -29,6 +29,7 @@ import {
   doc,
 } from "firebase/firestore";
 import { db } from "../firebase.config";
+import { values } from "pdf-lib";
 
 const { TabPane } = Tabs;
 const QR_CODE_URL = "https://atzgoldsmith.com/memberinfo/";
@@ -38,6 +39,11 @@ const businessCategories = [
     label: "Business Owner",
     value: "Business Owner",
   },
+  {
+    label: "Jewellery Wholeseller",
+    value: "Jewellery Wholeseller",
+  },
+
   {
     label: "Bangle Maker",
     value: "Bangle Maker",
@@ -77,6 +83,18 @@ const businessCategories = [
   {
     label: "Artificial Jewelry",
     value: "Artificial Jewelry",
+  },
+  {
+    label: "CAD Designing",
+    value: "CAD Designing",
+  },
+  {
+    label: "Casting",
+    value: "Casting",
+  },
+  {
+    label: "Patwa (Paroi wala)",
+    value: "Patwa (Paroi wala)",
   },
 ];
 
