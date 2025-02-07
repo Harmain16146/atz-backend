@@ -39,6 +39,22 @@ const businessCategories = [
     value: "Business Owner",
   },
   {
+    label: "Bangle Maker",
+    value: "Bangle Maker",
+  },
+  {
+    label: "Chain Maker",
+    value: "Chain Maker",
+  },
+  {
+    label: "Lacqer",
+    value: "Lacqer",
+  },
+  {
+    label: "Polish",
+    value: "Polish",
+  },
+  {
     label: "Polishing",
     value: "Polishing",
   },
