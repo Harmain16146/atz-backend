@@ -131,12 +131,12 @@ const businessCategories = [
 
 const memberCategories = [
   {
-    label: "Associate Class",
-    value: "Associate Class",
+    label: "Goldsmith Associate Class",
+    value: "Goldsmith Associate Class",
   },
   {
-    label: "Worker Class",
-    value: "Worker Class",
+    label: "Goldsmith Worker Class",
+    value: "Goldsmith Worker Class",
   },
 ];
 
