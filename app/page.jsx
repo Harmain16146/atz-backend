@@ -52,12 +52,20 @@ const businessCategories = [
     value: "Jewellery Wholesellers",
   },
   {
-    label: "Silver jewellery maker",
-    value: "Silver jewellery maker",
+    label: "Diamond Jewellery Maker",
+    value: "Diamond Jewellery Maker",
+  },
+  {
+    label: "Silver Jewellery Maker",
+    value: "Silver Jewellery Maker",
   },
   {
     label: "Artificial Jewellery Maker",
     value: "Artificial Jewellery Maker",
+  },
+  {
+    label: "Kundan Jewellery Maker",
+    value: "Kundan Jewellery Maker",
   },
   {
     label: "Bangle Maker",
@@ -86,10 +94,6 @@ const businessCategories = [
   {
     label: "Bol Maker",
     value: "Bol Maker",
-  },
-  {
-    label: "Diamond Jewellery Maker",
-    value: "Diamond Jewellery Maker",
   },
   {
     label: "Diamond Seller",
