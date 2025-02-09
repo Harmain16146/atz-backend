@@ -36,65 +36,92 @@ const QR_CODE_URL = "https://atzgoldsmith.com/memberinfo/";
 
 const businessCategories = [
   {
-    label: "Business Owner",
-    value: "Business Owner",
+    label: "Gold testing laboratory",
+    value: "Gold testing laboratory",
   },
   {
-    label: "Jewellery Wholeseller",
-    value: "Jewellery Wholeseller",
+    label: "Old Gold jewellery purchaser",
+    value: "Old Gold jewellery purchaser",
   },
-
+  {
+    label: "Gold Smith Jewellers",
+    value: "Gold Smith Jewellers",
+  },
+  {
+    label: "Jewellery Wholesellers",
+    value: "Jewellery Wholesellers",
+  },
+  {
+    label: "Silver jewellery maker",
+    value: "Silver jewellery maker",
+  },
+  {
+    label: "Artificial Jewellery Maker",
+    value: "Artificial Jewellery Maker",
+  },
   {
     label: "Bangle Maker",
     value: "Bangle Maker",
+  },
+  {
+    label: "Plain Jewellery Maker",
+    value: "Plain Jewellery Maker",
+  },
+  {
+    label: "Sadekar Jewellery Maker",
+    value: "Sadekar Jewellery Maker",
+  },
+  {
+    label: "Casting Jewellery Maker",
+    value: "Casting Jewellery Maker",
+  },
+  {
+    label: "Dai Jewellery Maker",
+    value: "Dai Jewellery Maker",
   },
   {
     label: "Chain Maker",
     value: "Chain Maker",
   },
   {
-    label: "Lacqer",
-    value: "Lacqer",
+    label: "Bol Maker",
+    value: "Bol Maker",
   },
   {
-    label: "Polish",
-    value: "Polish",
+    label: "Diamond Jewellery Maker",
+    value: "Diamond Jewellery Maker",
   },
   {
-    label: "Polishing",
-    value: "Polishing",
+    label: "Diamond Seller",
+    value: "Diamond Seller",
   },
   {
-    label: "Stone Setting",
-    value: "Stone Setting",
+    label: "Zerkon and Coloured Stone Seller",
+    value: "Zerkon and Coloured Stone Seller",
   },
   {
-    label: "Plain Jewelry",
-    value: "Plain Jewelry",
+    label: "Stone Setter (Jaraiya)",
+    value: "Stone Setter (Jaraiya)",
   },
   {
-    label: "Simple Jewelry Work",
-    value: "Simple Jewelry Work",
+    label: "Polish Wala (Polishing Jewellery)",
+    value: "Polish Wala (Polishing Jewellery)",
   },
   {
-    label: "Artificial Stone Setting",
-    value: "Artificial Stone Setting",
+    label: "Laker & Brite Wala",
+    value: "Laker & Brite Wala",
   },
   {
-    label: "Artificial Jewelry",
-    value: "Artificial Jewelry",
+    label: "COM + COD + R.P Wala",
+    value: "COM + COD + R.P Wala",
   },
   {
-    label: "CAD Designing",
-    value: "CAD Designing",
+    label: "Natasha Navis (Jewellery Designer)",
+    value: "Natasha Navis (Jewellery Designer)",
   },
   {
-    label: "Casting",
-    value: "Casting",
-  },
-  {
-    label: "Patwa (Paroi wala)",
-    value: "Patwa (Paroi wala)",
+    label: "Patwa (Poroi Wala)",
+    value: "Patwa (Poroi Wala)",
   },
 ];
 
