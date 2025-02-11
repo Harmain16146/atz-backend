@@ -116,12 +116,12 @@ const businessCategories = [
     value: "Laker & Brite Wala",
   },
   {
-    label: "COM + COD + R.P Wala",
-    value: "COM + COD + R.P Wala",
+    label: "CAM + CAD + R.P Wala",
+    value: "CAM + CAD + R.P Wala",
   },
   {
-    label: "Natasha Navis (Jewellery Designer)",
-    value: "Natasha Navis (Jewellery Designer)",
+    label: "Naksha Navis (Jewellery Designer)",
+    value: "Natsha Navis (Jewellery Designer)",
   },
   {
     label: "Patwa (Poroi Wala)",
@@ -333,7 +333,6 @@ export default function Home() {
       const docRef = doc(db, "members", values.cnic_number);
       let updatedPhotoUrl = values.photo_url;
 
-      // Check if a new photo is uploaded
       if (values.photo_url?.fileList) {
         const fileList = values.photo_url.fileList;
         if (fileList.length > 0) {
@@ -420,9 +419,15 @@ export default function Home() {
             <Form.Item
               name="cnic_number"
               label="CNIC Number"
-              rules={[{ required: true }]}
+              rules={[
+                { required: true, message: "CNIC number is required" },
+                {
+                  pattern: /^\d{13}$/,
+                  message: "CNIC number must be exactly 13 digits",
+                },
+              ]}
             >
-              <Input />
+              <Input maxLength={13} placeholder="Enter 13-digit CNIC" />
             </Form.Item>
 
             <Form.Item
@@ -518,7 +523,9 @@ export default function Home() {
           />
           <Table
             columns={columns}
-            dataSource={filteredMembers}
+            dataSource={[...filteredMembers].sort(
+              (a, b) => a.membership_number - b.membership_number
+            )}
             rowKey="key"
             loading={loading}
           />
@@ -668,7 +675,13 @@ export default function Home() {
           <Form.Item
             name="cnic_number"
             label="CNIC Number"
-            rules={[{ required: true }]}
+            rules={[
+              { required: true, message: "CNIC number is required" },
+              {
+                pattern: /^\d{13}$/,
+                message: "CNIC number must be exactly 13 digits",
+              },
+            ]}
           >
             <Input />
           </Form.Item>
