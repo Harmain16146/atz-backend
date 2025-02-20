@@ -1,4 +1,4 @@
-import { PDFDocument } from "pdf-lib";
+import { PDFDocument, rgb } from "pdf-lib";
 import { readFile } from "fs/promises";
 import path from "path";
 
@@ -27,55 +27,36 @@ export async function POST(req) {
     // Load PDF
     const existingPdfBytes = await readFile(inputPath);
     const pdfDoc = await PDFDocument.load(existingPdfBytes);
+    const page = pdfDoc.getPages()[0];
 
-    // Get form fields
-    const form = pdfDoc.getForm();
+    // Define text positions
+    const textFields = [
+      { text: memberName?.trim() ? memberName : "No Data", x: 75, y: 84 },
+      { text: businessName?.trim() ? businessName : "No Data", x: 75, y: 71 },
+      {
+        text: businessCategory?.trim() ? businessCategory : "No Data",
+        x: 75,
+        y: 59,
+      },
+      { text: cnicNumber?.trim() ? cnicNumber : "No Data", x: 75, y: 47 },
+      {
+        text: membershipNumber?.trim() ? membershipNumber : "No Data",
+        x: 75,
+        y: 34,
+      },
+      { text: memberSince?.trim() ? memberSince : "No Data", x: 75, y: 22 },
+      { text: serial?.trim() ? serial : "No Data", x: 370, y: 140 },
+    ];
 
-    // Define text field values
-    const fieldValues = {
-      Name: memberName,
-      "Business Name": businessName,
-      "Business Category": businessCategory,
-      CNIC: cnicNumber,
-      Membership: membershipNumber,
-      "Member Since": memberSince,
-      "Expiry Date": expiryDate,
-      Serial: serial,
-    };
-
-    // Try updating text fields
-    Object.entries(fieldValues).forEach(([fieldName, value]) => {
-      const field = form.getField(fieldName);
-      if (field && field.constructor.name === "PDFTextField") {
-        field.setText(value);
-        field.setFontSize(8);
-
-        // Center align only the "Serial" field
-        if (fieldName === "Serial") {
-          field.setAlignment(1); // 1 = Center alignment
-        }
-
-        console.log(`✅ Updated text field: ${fieldName} -> ${value}`);
-      } else {
-        console.warn(`⚠️ Skipping non-text field: ${fieldName}`);
-      }
+    // Draw text on PDF with small font size
+    textFields.forEach(({ text, x, y }) => {
+      page.drawText(text, { x, y, size: 8 });
     });
 
-    // Flatten the form to make changes permanent
-    form.flatten();
+    // Draw expiry date with white color
+    page.drawText(expiryDate, { x: 190, y: 24, size: 8, color: rgb(1, 1, 1) });
 
-    // If flattening fails, manually draw the text on the PDF
-    const page = pdfDoc.getPages()[0];
-    page.drawText(memberName, { x: 100, y: 500, size: 12 });
-    page.drawText(businessName, { x: 100, y: 480, size: 12 });
-    page.drawText(businessCategory, { x: 100, y: 460, size: 12 });
-    page.drawText(cnicNumber, { x: 100, y: 440, size: 12 });
-    page.drawText(membershipNumber, { x: 100, y: 420, size: 12 });
-    page.drawText(memberSince, { x: 100, y: 400, size: 12 });
-    page.drawText(expiryDate, { x: 100, y: 380, size: 12 });
-    page.drawText(serial, { x: 100, y: 360, size: 12 });
-
-    console.log("✅ Text fields updated and flattened.");
+    console.log("✅ Text added successfully.");
 
     // 📌 **Handling Member Profile Picture (PNG or JPG)**
     if (memberPic) {
@@ -83,14 +64,12 @@ export async function POST(req) {
         let imageBytes;
         let image;
 
-        // Check if the image is PNG or JPG
         if (memberPic.startsWith("data:image/png;base64,")) {
           imageBytes = Buffer.from(
             memberPic.replace("data:image/png;base64,", ""),
             "base64"
           );
-          image = await pdfDoc.embedPng(imageBytes); // Embed PNG
-          console.log("✅ PNG image detected and embedded.");
+          image = await pdfDoc.embedPng(imageBytes);
         } else if (
           memberPic.startsWith("data:image/jpeg;base64,") ||
           memberPic.startsWith("data:image/jpg;base64,")
@@ -102,22 +81,14 @@ export async function POST(req) {
             ),
             "base64"
           );
-          image = await pdfDoc.embedJpg(imageBytes); // Embed JPG
-          console.log("✅ JPG image detected and embedded.");
+          image = await pdfDoc.embedJpg(imageBytes);
         } else {
           throw new Error(
             "Invalid image format. Only PNG and JPG are supported."
           );
         }
 
-        // Draw Image on First Page (Adjust Position)
-        page.drawImage(image, {
-          x: 180, // Adjust x position
-          y: 45, // Adjust y position
-          width: 59,
-          height: 74,
-        });
-
+        page.drawImage(image, { x: 180, y: 45, width: 59, height: 74 });
         console.log("✅ Image added successfully.");
       } catch (imageError) {
         console.error("❌ Error embedding image:", imageError.message);
@@ -137,14 +108,7 @@ export async function POST(req) {
         );
         const qrImage = await pdfDoc.embedPng(qrBytes);
 
-        // Draw QR Code on First Page (Adjust Position)
-        page.drawImage(qrImage, {
-          x: 440, // Adjust x position (Right Side)
-          y: 14, // Adjust y position
-          width: 68,
-          height: 68,
-        });
-
+        page.drawImage(qrImage, { x: 440, y: 14, width: 68, height: 68 });
         console.log("✅ QR Code added successfully.");
       } catch (qrError) {
         console.error("❌ Error embedding QR Code:", qrError.message);
@@ -153,7 +117,6 @@ export async function POST(req) {
 
     // Save modified PDF
     const pdfBytes = await pdfDoc.save();
-
     console.log("🎉 PDF modified successfully!");
 
     return new Response(pdfBytes, {
@@ -165,7 +128,6 @@ export async function POST(req) {
     });
   } catch (error) {
     console.error("❌ Error modifying PDF:", error);
-
     return new Response(
       JSON.stringify({ message: "Error modifying PDF", error: error.message }),
       { status: 500, headers: { "Content-Type": "application/json" } }
