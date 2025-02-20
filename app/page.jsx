@@ -159,21 +159,21 @@ export default function Home() {
 
   const handleUpdatePdf = async () => {
     try {
-      // Get QR Code from canvas
       setDownloading(true);
+
+      // Get QR Code from canvas
       const canvas = document
         .getElementById("qrCanvas")
         ?.querySelector("canvas");
 
       if (!canvas) {
         console.error("QR Code not found!");
+        setDownloading(false);
         return;
       }
 
-      // Convert the canvas to a Base64 PNG
       const qrBase64 = canvas.toDataURL("image/png");
 
-      // Send data to backend
       const response = await fetch("/api/modify-pdf", {
         method: "POST",
         headers: {
@@ -185,7 +185,7 @@ export default function Home() {
           phoneNumber: selectedMemberData.phone_number,
           membershipNumber: selectedMemberData.membership_number,
           cnicNumber: selectedMemberData.cnic_number,
-          qrCodeBase64: qrBase64, // ✅ Send QR code as Base64
+          qrCodeBase64: qrBase64,
           businessCategory: selectedMemberData.business_category,
           memberPic: selectedMemberData.photo_url,
           memberSince: selectedMemberData.member_since,
@@ -194,17 +194,14 @@ export default function Home() {
 
       if (!response.ok) {
         throw new Error("Failed to modify PDF");
-        setDownloading(false);
       }
 
-      // 🔹 Convert response to Blob (PDF format)
+      // Convert response to Blob
       const blob = await response.blob();
-
-      // 🔹 Create a URL for the Blob
       const pdfUrl = URL.createObjectURL(blob);
 
-      // 🔹 Open the PDF in a new tab
       window.open(pdfUrl, "_blank");
+
       setDownloading(false);
       console.log("✅ PDF modified successfully!");
     } catch (error) {

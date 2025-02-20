@@ -119,7 +119,7 @@ export async function POST(req) {
     const pdfBytes = await pdfDoc.save();
     console.log("🎉 PDF modified successfully!");
 
-    return new Response(pdfBytes, {
+    return new Response(Buffer.from(pdfBytes), {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
