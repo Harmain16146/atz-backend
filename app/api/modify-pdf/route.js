@@ -124,6 +124,8 @@ export async function POST(req) {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": "inline; filename=modified.pdf",
+        "Access-Control-Allow-Origin": "*", // Allow all origins (for debugging)
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       },
     });
   } catch (error) {
