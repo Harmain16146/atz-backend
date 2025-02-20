@@ -19,8 +19,8 @@ export async function POST(req) {
 
     // Hardcoded values
     const memberSince = "2000";
-    const expiryDate = "10-12-2035";
-    const serial = "5000";
+    const expiryDate = "31-12-2025";
+    const serial = "RP/2059/L/S/86";
 
     // Define input PDF path
     const inputPath = path.join(process.cwd(), "public", "atz.pdf");
