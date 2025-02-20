@@ -158,11 +158,24 @@ export default function Home() {
 
   const handleUpdatePdf = async () => {
     try {
-      // Sending selectedMemberData to the API route
+      // Get QR Code from canvas
+      const canvas = document
+        .getElementById("qrCanvas")
+        ?.querySelector("canvas");
+
+      if (!canvas) {
+        console.error("QR Code not found!");
+        return;
+      }
+
+      // Convert the canvas to a Base64 PNG
+      const qrBase64 = canvas.toDataURL("image/png");
+
+      // Send data to backend
       const response = await fetch("/api/modify-pdf", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json", // Indicating that we're sending JSON data
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           memberName: selectedMemberData.member_name,
@@ -170,19 +183,28 @@ export default function Home() {
           phoneNumber: selectedMemberData.phone_number,
           membershipNumber: selectedMemberData.membership_number,
           cnicNumber: selectedMemberData.cnic_number,
-          qrCodeUrl: selectedMemberData.qrcode_url,
+          qrCodeBase64: qrBase64, // ✅ Send QR code as Base64
+          businessCategory: selectedMemberData.business_category,
+          memberPic: selectedMemberData.photo_url,
         }),
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        console.log("PDF modified successfully! Check the output file.");
-      } else {
-        console.log("Error: " + data.message);
+      if (!response.ok) {
+        throw new Error("Failed to modify PDF");
       }
+
+      // 🔹 Convert response to Blob (PDF format)
+      const blob = await response.blob();
+
+      // 🔹 Create a URL for the Blob
+      const pdfUrl = URL.createObjectURL(blob);
+
+      // 🔹 Open the PDF in a new tab
+      window.open(pdfUrl, "_blank");
+
+      console.log("✅ PDF modified successfully!");
     } catch (error) {
-      console.log("Error: " + error.message);
+      console.error("❌ Error:", error.message);
     }
   };
 
