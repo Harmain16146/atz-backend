@@ -151,6 +151,7 @@ export default function Home() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isEditable, setIsEditable] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     fetchMembers();
@@ -159,6 +160,7 @@ export default function Home() {
   const handleUpdatePdf = async () => {
     try {
       // Get QR Code from canvas
+      setDownloading(true);
       const canvas = document
         .getElementById("qrCanvas")
         ?.querySelector("canvas");
@@ -192,6 +194,7 @@ export default function Home() {
 
       if (!response.ok) {
         throw new Error("Failed to modify PDF");
+        setDownloading(false);
       }
 
       // 🔹 Convert response to Blob (PDF format)
@@ -202,10 +205,11 @@ export default function Home() {
 
       // 🔹 Open the PDF in a new tab
       window.open(pdfUrl, "_blank");
-
+      setDownloading(false);
       console.log("✅ PDF modified successfully!");
     } catch (error) {
       console.error("❌ Error:", error.message);
+      setDownloading(false);
     }
   };
 
@@ -647,6 +651,7 @@ export default function Home() {
                   type="primary"
                   icon={<DownloadOutlined />}
                   onClick={handleUpdatePdf}
+                  loading={downloading}
                 >
                   Download QR Code
                 </Button>
