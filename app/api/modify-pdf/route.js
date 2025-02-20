@@ -15,10 +15,9 @@ export async function POST(req) {
       membershipNumber,
       memberPic, // Base64 Image
       qrCodeBase64, // Base64 QR Code
+      memberSince,
     } = await req.json();
 
-    // Hardcoded values
-    const memberSince = "2000";
     const expiryDate = "31-12-2025";
     const serial = "RP/2059/L/S/86";
 

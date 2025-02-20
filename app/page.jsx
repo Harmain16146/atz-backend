@@ -186,6 +186,7 @@ export default function Home() {
           qrCodeBase64: qrBase64, // ✅ Send QR code as Base64
           businessCategory: selectedMemberData.business_category,
           memberPic: selectedMemberData.photo_url,
+          memberSince: selectedMemberData.member_since,
         }),
       });
 
@@ -517,6 +518,14 @@ export default function Home() {
             </Form.Item>
 
             <Form.Item
+              name="member_since"
+              label="Member Since"
+              rules={[{ required: true }]}
+            >
+              <Input />
+            </Form.Item>
+
+            <Form.Item
               name="home_address"
               label="Home Address"
               rules={[{ required: true }]}
@@ -606,6 +615,10 @@ export default function Home() {
                   <p>
                     <strong>CNIC Number:</strong>{" "}
                     {selectedMemberData.cnic_number}
+                  </p>
+                  <p>
+                    <strong>Member Since:</strong>{" "}
+                    {selectedMemberData.member_since || "No data"}
                   </p>
                 </div>
               </Col>
@@ -767,6 +780,14 @@ export default function Home() {
           <Form.Item
             name="membership_number"
             label="Membership Number"
+            rules={[{ required: true }]}
+          >
+            <Input />
+          </Form.Item>
+
+          <Form.Item
+            name="member_since"
+            label="Member Since"
             rules={[{ required: true }]}
           >
             <Input />
