@@ -43,7 +43,7 @@ export async function POST(req) {
       Serial: serial,
     };
 
-    // Update text fields
+    // Try updating text fields
     Object.entries(fieldValues).forEach(([fieldName, value]) => {
       const field = form.getField(fieldName);
       if (field && field.constructor.name === "PDFTextField") {
@@ -60,6 +60,22 @@ export async function POST(req) {
         console.warn(`⚠️ Skipping non-text field: ${fieldName}`);
       }
     });
+
+    // Flatten the form to make changes permanent
+    form.flatten();
+
+    // If flattening fails, manually draw the text on the PDF
+    const page = pdfDoc.getPages()[0];
+    page.drawText(memberName, { x: 100, y: 500, size: 12 });
+    page.drawText(businessName, { x: 100, y: 480, size: 12 });
+    page.drawText(businessCategory, { x: 100, y: 460, size: 12 });
+    page.drawText(cnicNumber, { x: 100, y: 440, size: 12 });
+    page.drawText(membershipNumber, { x: 100, y: 420, size: 12 });
+    page.drawText(memberSince, { x: 100, y: 400, size: 12 });
+    page.drawText(expiryDate, { x: 100, y: 380, size: 12 });
+    page.drawText(serial, { x: 100, y: 360, size: 12 });
+
+    console.log("✅ Text fields updated and flattened.");
 
     // 📌 **Handling Member Profile Picture (PNG or JPG)**
     if (memberPic) {
@@ -95,7 +111,6 @@ export async function POST(req) {
         }
 
         // Draw Image on First Page (Adjust Position)
-        const page = pdfDoc.getPages()[0];
         page.drawImage(image, {
           x: 180, // Adjust x position
           y: 45, // Adjust y position
@@ -123,7 +138,6 @@ export async function POST(req) {
         const qrImage = await pdfDoc.embedPng(qrBytes);
 
         // Draw QR Code on First Page (Adjust Position)
-        const page = pdfDoc.getPages()[0];
         page.drawImage(qrImage, {
           x: 440, // Adjust x position (Right Side)
           y: 14, // Adjust y position
