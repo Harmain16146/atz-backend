@@ -161,11 +161,9 @@ export default function Home() {
     try {
       setDownloading(true);
 
-      // Get QR Code from canvas
       const canvas = document
         .getElementById("qrCanvas")
         ?.querySelector("canvas");
-
       if (!canvas) {
         console.error("QR Code not found!");
         setDownloading(false);
@@ -176,9 +174,7 @@ export default function Home() {
 
       const response = await fetch("/api/modify-pdf", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           memberName: selectedMemberData.member_name,
           businessName: selectedMemberData.business_name,
@@ -200,10 +196,17 @@ export default function Home() {
       const blob = await response.blob();
       const pdfUrl = URL.createObjectURL(blob);
 
-      window.open(pdfUrl, "_blank");
+      // Create a temporary anchor link
+      const a = document.createElement("a");
+      a.href = pdfUrl;
+      a.target = "_blank"; // Open in a new tab
+      a.download = "modified.pdf"; // Force download
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
 
       setDownloading(false);
-      console.log("✅ PDF modified successfully!");
+      console.log("✅ PDF opened/downloaded successfully!");
     } catch (error) {
       console.error("❌ Error:", error.message);
       setDownloading(false);
