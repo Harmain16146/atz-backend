@@ -27,6 +27,8 @@ import {
   limit,
   setDoc,
   doc,
+  getCountFromServer,
+  startAfter,
 } from "firebase/firestore";
 import { db } from "../firebase.config";
 import { values } from "pdf-lib";
@@ -144,16 +146,21 @@ export default function Home() {
   const [form] = Form.useForm();
   const [editForm] = Form.useForm();
   const [members, setMembers] = useState([]);
-  const [imageUrl, setImageUrl] = useState("");
   const [loading, setLoading] = useState(false);
+  const [lastDoc, setLastDoc] = useState(null);
+  const [totalDocs, setTotalDocs] = useState(0);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+
   const [isVisible, setIsVisible] = useState(false);
   const [selectedMemberData, setSelectedMemberData] = useState(null);
-  const [searchTerm, setSearchTerm] = useState("");
+
   const [isEditable, setIsEditable] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
+    fetchTotalDocs(); // Fetch total documents for pagination
     fetchMembers();
   }, []);
 
@@ -319,17 +326,77 @@ export default function Home() {
     }
   };
 
-  const fetchMembers = async () => {
+  const fetchTotalDocs = async () => {
+    try {
+      const collRef = collection(db, "members");
+      const snapshot = await getCountFromServer(collRef); // Efficiently counts docs
+      console.log("size of the data is", snapshot.data().count);
+
+      setTotalDocs(snapshot.data().count);
+    } catch (error) {
+      message.error("Error fetching total members count");
+    }
+  };
+
+  const fetchMembers = async (nextPage = false) => {
     setLoading(true);
     try {
-      const querySnapshot = await getDocs(collection(db, "members"));
+      let q = query(
+        collection(db, "members"),
+        orderBy("membership_number"),
+        limit(10)
+      );
+
+      if (nextPage && lastDoc) {
+        q = query(
+          collection(db, "members"),
+          orderBy("membership_number"),
+          startAfter(lastDoc),
+          limit(10)
+        );
+      }
+
+      const querySnapshot = await getDocs(q);
       const membersData = [];
+
       querySnapshot.forEach((doc) => {
         membersData.push({ key: doc.id, ...doc.data() });
       });
-      setMembers(membersData);
+      console.log("member data is", membersData);
+
+      setMembers(nextPage ? [...members, ...membersData] : membersData);
+      setLastDoc(querySnapshot.docs[querySnapshot.docs.length - 1]); // Set last document for pagination
     } catch (error) {
       message.error("Error fetching members");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSearch = async (value) => {
+    setSearchTerm(value);
+    if (!value) {
+      fetchMembers();
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const q = query(
+        collection(db, "members"),
+        where("member_name", ">=", value),
+        where("member_name", "<=", value + "\uf8ff"),
+        orderBy("member_name"),
+        limit(10)
+      );
+      const querySnapshot = await getDocs(q);
+      const searchResults = [];
+      querySnapshot.forEach((doc) => {
+        searchResults.push({ key: doc.id, ...doc.data() });
+      });
+      setMembers(searchResults);
+    } catch (error) {
+      message.error("Error searching members");
     } finally {
       setLoading(false);
     }
@@ -550,19 +617,39 @@ export default function Home() {
           </Form>
         </TabPane>
         <TabPane tab="Members List" key="2">
-          <Input
-            placeholder="Search members by name"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="mb-4"
-          />
+          <div className="flex flex-row justify-between items-center mb-4 w-full">
+            <Input
+              placeholder="Search members by name"
+              value={searchTerm}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="w-3/4"
+            />
+            <span className="text-gray-500 text-base whitespace-nowrap">
+              Total Entries: {totalDocs}
+            </span>
+          </div>
+
           <Table
             columns={columns}
-            dataSource={[...filteredMembers].sort(
-              (a, b) => a.membership_number - b.membership_number
-            )}
+            dataSource={members}
             rowKey="key"
             loading={loading}
+            pagination={{
+              pageSize: 10,
+              total: totalDocs,
+              onChange: (page) => {
+                if (page > members.length / 10) {
+                  fetchMembers(true); // Fetch next set of members when a new page is requested
+                }
+              },
+              showSizeChanger: false, // Hide page size dropdown
+              itemRender: (page, type, originalElement) => {
+                if (type === "page") {
+                  return null;
+                }
+                return originalElement; // Keep arrows functional
+              },
+            }}
           />
         </TabPane>
       </Tabs>
