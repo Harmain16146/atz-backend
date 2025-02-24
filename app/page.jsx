@@ -102,32 +102,36 @@ const businessCategories = [
     value: "Diamond Seller",
   },
   {
-    label: "Zerkon and Coloured Stone Seller",
-    value: "Zerkon and Coloured Stone Seller",
+    label: "Stone Seller",
+    value: "Stone Seller",
   },
   {
-    label: "Stone Setter (Jaraiya)",
-    value: "Stone Setter (Jaraiya)",
+    label: "Stone Setter",
+    value: "Stone Setter",
   },
   {
-    label: "Polish Wala (Polishing Jewellery)",
-    value: "Polish Wala (Polishing Jewellery)",
+    label: "Polishing Jewellery",
+    value: "Polishing Jewellery",
   },
   {
     label: "Laker & Brite Wala",
     value: "Laker & Brite Wala",
   },
   {
-    label: "CAM + CAD + R.P Wala",
-    value: "CAM + CAD + R.P Wala",
+    label: "CAM + CAD",
+    value: "CAM + CAD",
   },
   {
-    label: "Naksha Navis (Jewellery Designer)",
-    value: "Natsha Navis (Jewellery Designer)",
+    label: "Jewellery Designer",
+    value: "Jewellery Designer",
   },
   {
     label: "Patwa (Poroi Wala)",
     value: "Patwa (Poroi Wala)",
+  },
+  {
+    label: "Chailaii wala",
+    value: "Chailaii wala",
   },
 ];
 
@@ -329,7 +333,7 @@ export default function Home() {
   const fetchTotalDocs = async () => {
     try {
       const collRef = collection(db, "members");
-      const snapshot = await getCountFromServer(collRef); // Efficiently counts docs
+      const snapshot = await getCountFromServer(collRef);
       console.log("size of the data is", snapshot.data().count);
 
       setTotalDocs(snapshot.data().count);
@@ -410,10 +414,6 @@ export default function Home() {
       reader.onerror = (error) => reject(error);
     });
   };
-
-  const filteredMembers = members.filter((member) =>
-    member.member_name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   const handleEditMember = (member) => {
     editForm.setFieldsValue(member);
