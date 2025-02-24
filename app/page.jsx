@@ -42,8 +42,8 @@ const businessCategories = [
     value: "Gold testing laboratory",
   },
   {
-    label: "Old Gold jewellery purchaser",
-    value: "Old Gold jewellery purchaser",
+    label: "Old Gold purchaser",
+    value: "Old Gold purchaser",
   },
   {
     label: "Gold Smith Jewellers",
@@ -102,8 +102,8 @@ const businessCategories = [
     value: "Diamond Seller",
   },
   {
-    label: "Stone Seller",
-    value: "Stone Seller",
+    label: "Gem Stone Seller",
+    value: "Gem Stone Seller",
   },
   {
     label: "Stone Setter",
