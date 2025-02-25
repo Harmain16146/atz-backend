@@ -19,7 +19,6 @@ import {
 import { DownloadOutlined, UploadOutlined } from "@ant-design/icons";
 import {
   collection,
-  addDoc,
   query,
   where,
   getDocs,
@@ -29,9 +28,10 @@ import {
   doc,
   getCountFromServer,
   startAfter,
+  deleteDoc,
+  updateDoc,
 } from "firebase/firestore";
 import { db } from "../firebase.config";
-import { values } from "pdf-lib";
 
 const { TabPane } = Tabs;
 const QR_CODE_URL = "https://atzgoldsmith.com/memberinfo/";
@@ -163,10 +163,129 @@ export default function Home() {
   const [editLoading, setEditLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
+  //request
+  const [requests, setRequests] = useState([]);
+  const [lastRequestDoc, setLastRequestDoc] = useState(null);
+  const [requestLoading, setRequestLoading] = useState(false);
+  const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [membershipNumber, setMembershipNumber] = useState("");
+
   useEffect(() => {
     fetchTotalDocs(); // Fetch total documents for pagination
     fetchMembers();
+    fetchRequests();
   }, []);
+
+  const fetchRequests = async (nextPage = false) => {
+    setRequestLoading(true);
+    let q;
+
+    if (nextPage && lastRequestDoc) {
+      q = query(
+        collection(db, "requests"),
+        where("approved", "==", false),
+        orderBy("createdAt"),
+        startAfter(lastRequestDoc),
+        limit(10)
+      );
+    } else {
+      q = query(
+        collection(db, "requests"),
+        where("approved", "==", false),
+        orderBy("createdAt"),
+        limit(10)
+      );
+    }
+
+    const querySnapshot = await getDocs(q);
+    const data = querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    setRequests(nextPage ? [...requests, ...data] : data);
+
+    if (querySnapshot.docs.length > 0) {
+      setLastRequestDoc(querySnapshot.docs[querySnapshot.docs.length - 1]);
+    }
+    setRequestLoading(false);
+  };
+
+  const handleView = (record) => {
+    setSelectedRequest(record);
+    setIsRequestModalOpen(true);
+  };
+
+  const handleApprove = async () => {
+    if (!membershipNumber.trim()) {
+      message.error("Please enter a Membership Number before approving.");
+      return;
+    }
+    setRequestLoading(true);
+    try {
+      const { approved, id, ...memberData } = selectedRequest; // Exclude `approved` and `id`
+
+      const memberRef = doc(db, "members", selectedRequest.cnic_number);
+
+      // Add to "members" without `approved`
+      await setDoc(memberRef, {
+        ...memberData,
+        membership_number: membershipNumber,
+      });
+
+      // Update the request's approved status in Firestore
+      const requestRef = doc(db, "requests", selectedRequest.id);
+      await updateDoc(requestRef, { approved: true });
+
+      message.success("Request approved and added to members.");
+      setIsRequestModalOpen(false);
+      setMembershipNumber("");
+      setRequestLoading(false);
+      fetchRequests();
+      setIsRequestModalOpen(false);
+    } catch (error) {
+      console.error("Error approving request:", error);
+      message.error("Failed to approve the request. Please try again.");
+      setRequestLoading(false);
+    }
+  };
+
+  const handleDecline = async () => {
+    if (!selectedRequest) return;
+    setRequestLoading(true);
+    const requestRef = doc(db, "requests", selectedRequest.id);
+    try {
+      await deleteDoc(requestRef);
+      setRequests(requests.filter((item) => item.id !== selectedRequest.id));
+      setIsModalOpen(false);
+      setRequestLoading(false);
+      fetchRequests();
+      setIsRequestModalOpen(false);
+    } catch (error) {
+      console.error("Error declining request:", error);
+      setRequestLoading(false);
+    }
+  };
+
+  const requestColumns = [
+    { title: "Name", dataIndex: "member_name", key: "member_name" },
+    {
+      title: "Busniess Name",
+      dataIndex: "business_name",
+      key: "business_name",
+    },
+    { title: "Cnic Number", dataIndex: "cnic_number", key: "cnic_number" },
+    {
+      title: "Action",
+      key: "action",
+      render: (_, record) => (
+        <Button type="primary" onClick={() => handleView(record)}>
+          View
+        </Button>
+      ),
+    },
+  ];
 
   const handleUpdatePdf = async () => {
     try {
@@ -257,7 +376,7 @@ export default function Home() {
             type="secondary"
             style={{
               marginRight: 10,
-              border: "2px dotted red", // Dotted red border
+              border: "2px dotted red",
             }}
             onClick={() => {
               handleEditMember(member);
@@ -462,9 +581,7 @@ export default function Home() {
 
   return (
     <div className="max-w-6xl mx-auto p-6 bg-white rounded-lg shadow-md">
-      <h1 className="text-3xl font-bold mb-6 text-center">
-        Business Directory
-      </h1>
+      <h1 className="text-3xl font-bold mb-6 text-center">ATZ Backend</h1>
       <Tabs defaultActiveKey="1">
         <TabPane tab="Registration Form" key="1">
           <Form
@@ -652,6 +769,26 @@ export default function Home() {
               },
             }}
           />
+        </TabPane>
+        <TabPane tab="New Requests" key="3">
+          <Table
+            dataSource={requests}
+            columns={requestColumns}
+            rowKey="id"
+            pagination={{ pageSize: 10 }}
+            loading={requestLoading}
+          />
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              marginTop: "10px",
+            }}
+          >
+            <Button onClick={() => fetchRequests(true)} disabled={loading}>
+              Next
+            </Button>
+          </div>
         </TabPane>
       </Tabs>
       <Modal
@@ -905,6 +1042,104 @@ export default function Home() {
             </Button>
           </Form.Item>
         </Form>
+      </Modal>
+      <Modal
+        title="Request Details"
+        open={isRequestModalOpen}
+        onCancel={() => setIsRequestModalOpen(false)}
+        footer={[
+          <Button
+            key="decline"
+            type="primary"
+            danger
+            onClick={handleDecline}
+            loading={requestLoading}
+          >
+            Decline
+          </Button>,
+          <Button
+            key="approve"
+            type="primary"
+            onClick={handleApprove}
+            disabled={!membershipNumber.trim()}
+            loading={requestLoading}
+          >
+            Approve
+          </Button>,
+        ]}
+      >
+        {selectedRequest && (
+          <div>
+            <Row justify="center" gutter={[16, 16]}>
+              <Col>
+                <Image
+                  src={selectedRequest.photo_url}
+                  width={200}
+                  height={200}
+                  alt="Member Photo"
+                  style={{ marginBottom: "16px" }}
+                />
+              </Col>
+              <Col>
+                <Image
+                  src={selectedRequest.payment_screenshot}
+                  width={200}
+                  height={200}
+                  alt="Payment Screenshot"
+                  style={{ marginBottom: "16px" }}
+                />
+              </Col>
+            </Row>
+
+            <Row gutter={[16, 16]}>
+              <Col span={12}>
+                <p>
+                  <strong>Name:</strong> {selectedRequest.member_name}
+                </p>
+                <p>
+                  <strong>CNIC Number:</strong> {selectedRequest.cnic_number}
+                </p>
+                <p>
+                  <strong>Father Name:</strong> {selectedRequest.father_name}
+                </p>
+                <p>
+                  <strong>Business Name:</strong>{" "}
+                  {selectedRequest.business_name}
+                </p>
+                <p>
+                  <strong>Business Category:</strong>{" "}
+                  {selectedRequest.business_category}
+                </p>
+              </Col>
+              <Col span={12}>
+                <p>
+                  <strong>Phone:</strong> {selectedRequest.phone_number}
+                </p>
+                <p>
+                  <strong>Business Address:</strong>{" "}
+                  {selectedRequest.business_address}
+                </p>
+                <p>
+                  <strong>Home Address:</strong> {selectedRequest.home_address}
+                </p>
+                <p>
+                  <strong>Member Since:</strong> {selectedRequest.member_since}
+                </p>
+              </Col>
+            </Row>
+
+            {/* Membership Number Input */}
+            <Row justify="center" style={{ marginTop: "16px" }}>
+              <Col span={16}>
+                <Input
+                  placeholder="Enter Membership Number"
+                  value={membershipNumber}
+                  onChange={(e) => setMembershipNumber(e.target.value)}
+                />
+              </Col>
+            </Row>
+          </div>
+        )}
       </Modal>
     </div>
   );
