@@ -347,6 +347,7 @@ export default function Home() {
     try {
       let q = query(
         collection(db, "members"),
+        where("membership_number", ">=", "0"),
         orderBy("membership_number"),
         limit(10)
       );
@@ -740,7 +741,7 @@ export default function Home() {
                   onClick={handleUpdatePdf}
                   loading={downloading}
                 >
-                  Download QR Code
+                  Download PDF
                 </Button>
               </Col>
             </Row>
