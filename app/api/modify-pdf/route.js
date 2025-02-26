@@ -18,7 +18,7 @@ export async function POST(req) {
       memberSince,
     } = await req.json();
 
-    const expiryDate = "31-03-2025";
+    const expiryDate = "31-03-2026";
     const serial = "RP/2059/L/S/86";
 
     // Define input PDF path
