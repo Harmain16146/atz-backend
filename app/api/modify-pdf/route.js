@@ -50,7 +50,7 @@ export async function POST(req) {
 
     // Draw text on PDF with small font size
     textFields.forEach(({ text, x, y }) => {
-      page.drawText(text, { x, y, size: 8 });
+      page.drawText(text, { x, y, size: 7.5 });
     });
 
     // Draw expiry date with white color
