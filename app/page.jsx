@@ -170,6 +170,17 @@ export default function Home() {
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [membershipNumber, setMembershipNumber] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [visitedPages, setVisitedPages] = useState(new Set([1]));
+
+  const handlePageChange = (page) => {
+    if (!visitedPages.has(page)) {
+      fetchMembers(true);
+    }
+
+    setVisitedPages(new Set([...visitedPages, page]));
+    setCurrentPage(page);
+  };
 
   useEffect(() => {
     fetchTotalDocs(); // Fetch total documents for pagination
@@ -755,17 +766,32 @@ export default function Home() {
             pagination={{
               pageSize: 10,
               total: totalDocs,
-              onChange: (page) => {
-                if (page > members.length / 10) {
-                  fetchMembers(true); // Fetch next set of members when a new page is requested
-                }
-              },
+              current: currentPage,
+              onChange: handlePageChange,
               showSizeChanger: false, // Hide page size dropdown
               itemRender: (page, type, originalElement) => {
                 if (type === "page") {
-                  return null;
+                  const isClickable =
+                    visitedPages.has(page) || page === currentPage + 1;
+                  return (
+                    <button
+                      onClick={() => isClickable && handlePageChange(page)}
+                      disabled={!isClickable}
+                      style={{
+                        margin: "0 5px",
+                        padding: "5px 10px",
+                        cursor: isClickable ? "pointer" : "not-allowed",
+                        background: isClickable ? "#1890ff" : "#ccc",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: "5px",
+                      }}
+                    >
+                      {page}
+                    </button>
+                  );
                 }
-                return originalElement; // Keep arrows functional
+                return originalElement; // Keep navigation arrows functional
               },
             }}
           />
