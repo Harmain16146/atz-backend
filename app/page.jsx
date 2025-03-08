@@ -118,6 +118,14 @@ const businessCategories = [
     value: "Laker & Brite Wala",
   },
   {
+    label: "Laser Engraving",
+    value: "Laser Engraving",
+  },
+  {
+    label: "Jewellery Maker",
+    value: "Jewellery Maker",
+  },
+  {
     label: "CAM + CAD",
     value: "CAM + CAD",
   },
