@@ -6,30 +6,26 @@ export async function POST(req) {
   try {
     console.log("Processing PDF modification...");
 
-    // Extract data from request
     const {
       memberName,
       businessName,
       businessCategory,
       cnicNumber,
       membershipNumber,
-      memberPic, // Base64 Image
-      qrCodeBase64, // Base64 QR Code
+      memberPic,
+      qrCodeBase64,
       memberSince,
     } = await req.json();
 
-    const expiryDate = "31-03-2026";
+    const expiryDate = "Expiry Date: 31-03-2026";
     const serial = "RP/2059/L/S/86";
 
-    // Define input PDF path
     const inputPath = path.join(process.cwd(), "public", "atz.pdf");
 
-    // Load PDF
     const existingPdfBytes = await readFile(inputPath);
     const pdfDoc = await PDFDocument.load(existingPdfBytes);
     const page = pdfDoc.getPages()[0];
 
-    // Define text positions
     const textFields = [
       { text: memberName?.trim() ? memberName : "No Data", x: 75, y: 84 },
       { text: businessName?.trim() ? businessName : "No Data", x: 75, y: 71 },
@@ -48,17 +44,14 @@ export async function POST(req) {
       { text: serial?.trim() ? serial : "No Data", x: 370, y: 140 },
     ];
 
-    // Draw text on PDF with small font size
     textFields.forEach(({ text, x, y }) => {
       page.drawText(text, { x, y, size: 7.5 });
     });
 
-    // Draw expiry date with white color
-    page.drawText(expiryDate, { x: 190, y: 24, size: 8, color: rgb(1, 1, 1) });
+    page.drawText(expiryDate, { x: 180, y: 25, size: 6, color: rgb(1, 1, 1) });
 
     console.log("✅ Text added successfully.");
 
-    // 📌 **Handling Member Profile Picture (PNG or JPG)**
     if (memberPic) {
       try {
         let imageBytes;
