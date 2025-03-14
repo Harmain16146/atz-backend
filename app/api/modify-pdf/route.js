@@ -17,7 +17,7 @@ export async function POST(req) {
       memberSince,
     } = await req.json();
 
-    const expiryDate = "Expiry Date: 31-03-2026";
+    const expiryDate = "Expiry Date: 31-01-2026";
     const serial = "RP/2059/L/S/86";
 
     const inputPath = path.join(process.cwd(), "public", "atz.pdf");
