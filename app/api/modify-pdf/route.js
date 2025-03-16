@@ -17,7 +17,7 @@ export async function POST(req) {
       memberSince,
     } = await req.json();
 
-    const expiryDate = "Expiry Date: 31-01-2026";
+    const expiryDate = "Exp: 31-01-2026";
     const serial = "RP/2059/L/S/86";
 
     const inputPath = path.join(process.cwd(), "public", "atz.pdf");
@@ -48,7 +48,7 @@ export async function POST(req) {
       page.drawText(text, { x, y, size: 7.5 });
     });
 
-    page.drawText(expiryDate, { x: 180, y: 25, size: 6, color: rgb(1, 1, 1) });
+    page.drawText(expiryDate, { x: 188, y: 25, size: 6, color: rgb(1, 1, 1) });
 
     console.log("✅ Text added successfully.");
 
