@@ -1,6 +1,10 @@
 import { PDFDocument, rgb } from "pdf-lib";
 import { readFile } from "fs/promises";
 import path from "path";
+import { StandardFonts } from "pdf-lib";
+
+const pdfDoc = await PDFDocument.create();
+const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
 export async function POST(req) {
   try {
@@ -45,7 +49,7 @@ export async function POST(req) {
     ];
 
     textFields.forEach(({ text, x, y }) => {
-      page.drawText(text, { x, y, size: 7.5 });
+      page.drawText(text, { x, y, size: 7.5, font });
     });
 
     page.drawText(expiryDate, { x: 188, y: 25, size: 6, color: rgb(1, 1, 1) });
