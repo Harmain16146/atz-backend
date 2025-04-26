@@ -1,10 +1,6 @@
 import { PDFDocument, rgb } from "pdf-lib";
 import { readFile } from "fs/promises";
 import path from "path";
-import { StandardFonts } from "pdf-lib";
-
-const pdfDoc = await PDFDocument.create();
-const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
 export async function POST(req) {
   try {
@@ -31,31 +27,24 @@ export async function POST(req) {
     const page = pdfDoc.getPages()[0];
 
     const textFields = [
-      { text: memberName?.trim() ? memberName : "No Data", x: 75, y: 84 },
-      { text: businessName?.trim() ? businessName : "No Data", x: 75, y: 71 },
-      {
-        text: businessCategory?.trim() ? businessCategory : "No Data",
-        x: 75,
-        y: 59,
-      },
-      { text: cnicNumber?.trim() ? cnicNumber : "No Data", x: 75, y: 47 },
-      {
-        text: membershipNumber?.trim() ? membershipNumber : "No Data",
-        x: 75,
-        y: 34,
-      },
-      { text: memberSince?.trim() ? memberSince : "No Data", x: 75, y: 22 },
-      { text: serial?.trim() ? serial : "No Data", x: 370, y: 140 },
+      { text: memberName?.trim() || "No Data", x: 75, y: 84 },
+      { text: businessName?.trim() || "No Data", x: 75, y: 71 },
+      { text: businessCategory?.trim() || "No Data", x: 75, y: 59 },
+      { text: cnicNumber?.trim() || "No Data", x: 75, y: 47 },
+      { text: membershipNumber?.trim() || "No Data", x: 75, y: 34 },
+      { text: memberSince?.trim() || "No Data", x: 75, y: 22 },
+      { text: serial?.trim() || "No Data", x: 370, y: 140 },
     ];
 
     textFields.forEach(({ text, x, y }) => {
-      page.drawText(text, { x, y, size: 7.5, font });
+      page.drawText(text, { x, y, size: 7.5 });
     });
 
     page.drawText(expiryDate, { x: 188, y: 25, size: 6, color: rgb(1, 1, 1) });
 
     console.log("✅ Text added successfully.");
 
+    // Handle Member Picture
     if (memberPic) {
       try {
         let imageBytes;
@@ -86,13 +75,13 @@ export async function POST(req) {
         }
 
         page.drawImage(image, { x: 180, y: 45, width: 59, height: 74 });
-        console.log("✅ Image added successfully.");
+        console.log("✅ Member image added successfully.");
       } catch (imageError) {
-        console.error("❌ Error embedding image:", imageError.message);
+        console.error("❌ Error embedding member image:", imageError.message);
       }
     }
 
-    // 📌 **Handling QR Code (PNG Only)**
+    // Handle QR Code
     if (qrCodeBase64) {
       try {
         if (!qrCodeBase64.startsWith("data:image/png;base64,")) {
@@ -112,16 +101,17 @@ export async function POST(req) {
       }
     }
 
-    // Save modified PDF
+    // Save the modified PDF
     const pdfBytes = await pdfDoc.save();
     console.log("🎉 PDF modified successfully!");
 
-    return new Response(Buffer.from(pdfBytes), {
+    // 🚀 Return correct response (No Buffer.from)
+    return new Response(pdfBytes, {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": "inline; filename=modified.pdf",
-        "Access-Control-Allow-Origin": "*", // Allow all origins (for debugging)
+        "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       },
     });
