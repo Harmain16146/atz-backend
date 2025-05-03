@@ -206,14 +206,14 @@ export default function Home() {
         where("approved", "==", false),
         orderBy("createdAt"),
         startAfter(lastRequestDoc),
-        limit(10)
+        limit(50)
       );
     } else {
       q = query(
         collection(db, "requests"),
         where("approved", "==", false),
         orderBy("createdAt"),
-        limit(10)
+        limit(50)
       );
     }
 
@@ -487,7 +487,7 @@ export default function Home() {
         collection(db, "members"),
         where("membership_number", ">=", "0"),
         orderBy("membership_number"),
-        limit(10)
+        limit(50)
       );
 
       if (nextPage && lastDoc) {
@@ -495,7 +495,7 @@ export default function Home() {
           collection(db, "members"),
           orderBy("membership_number"),
           startAfter(lastDoc),
-          limit(10)
+          limit(50)
         );
       }
 
@@ -530,7 +530,7 @@ export default function Home() {
         where("member_name", ">=", value),
         where("member_name", "<=", value + "\uf8ff"),
         orderBy("member_name"),
-        limit(10)
+        limit(50)
       );
       const querySnapshot = await getDocs(q);
       const searchResults = [];
@@ -772,7 +772,7 @@ export default function Home() {
             rowKey="key"
             loading={loading}
             pagination={{
-              pageSize: 10,
+              pageSize: 50,
               total: totalDocs,
               current: currentPage,
               onChange: handlePageChange,
