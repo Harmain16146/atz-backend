@@ -529,9 +529,9 @@ export default function Home() {
     try {
       const q = query(
         collection(db, "members"),
-        where("member_name", ">=", value),
-        where("member_name", "<=", value + "\uf8ff"),
-        orderBy("member_name"),
+        where("membership_number", ">=", value),
+        where("membership_number", "<=", value + "\uf8ff"),
+        orderBy("membership_number"),
         limit(30)
       );
       const querySnapshot = await getDocs(q);
