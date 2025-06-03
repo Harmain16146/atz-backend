@@ -61,11 +61,6 @@ export default function SignIn() {
     }
   };
 
-  if (user) {
-    router.push("/");
-    return null;
-  }
-
   return (
     <div className="min-h-screen flex items-center justify-center  px-4">
       <div className="max-w-md w-full bg-[#222222] text-[#F7CE46] p-8 rounded-2xl shadow-2xl border border-gray-700">
