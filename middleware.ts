@@ -4,13 +4,7 @@ import type { NextRequest } from "next/server";
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  const isAuthenticated = Boolean(
-    request.cookies.get("middleware_token")?.value
-  );
-
-  console.log(
-    `Middleware check: isAuthenticated=${isAuthenticated}, pathname=${pathname}`
-  );
+  const isAuthenticated = Boolean(request.cookies.get("auth_token")?.value);
 
   const isAuthPage = pathname === "/signin";
   const isProtectedRoute = pathname === "/";
