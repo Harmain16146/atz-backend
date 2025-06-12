@@ -403,6 +403,31 @@ export default function Home() {
           >
             Edit
           </Button>
+          <Button
+            type="primary"
+            danger
+            onClick={() => {
+              Modal.confirm({
+                title: "Are you sure you want to delete this member?",
+                content: "This action cannot be undone.",
+                okText: "Yes",
+                okType: "danger",
+                cancelText: "No",
+                onOk: async () => {
+                  try {
+                    const docRef = doc(db, "members", member.cnic_number);
+                    await deleteDoc(docRef);
+                    message.success("Member deleted successfully");
+                    fetchMembers();
+                  } catch (error) {
+                    message.error("Error deleting member: " + error.message);
+                  }
+                },
+              });
+            }}
+          >
+            Delete
+          </Button>
         </>
       ),
     },
