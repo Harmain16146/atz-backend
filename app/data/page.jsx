@@ -154,6 +154,21 @@ const memberCategories = [
   },
 ];
 
+const workerCategories = [
+  {
+    label: "Gold Smith Worker",
+    value: "Gold Smith Worker",
+  },
+  {
+    label: "Gold Smith Labor",
+    value: "Gold Smith Labor",
+  },
+  {
+    label: "Gold smith Partner",
+    value: "Gold smith Partner",
+  },
+];
+
 export default function Home() {
   const [form] = Form.useForm();
   const [editForm] = Form.useForm();
@@ -166,6 +181,8 @@ export default function Home() {
 
   const [isVisible, setIsVisible] = useState(false);
   const [selectedMemberData, setSelectedMemberData] = useState(null);
+  const [isWorkerModal, setIsWorkerModal] = useState(false);
+  const [isWorkerEdit, setIsWorkerEdit] = useState(false);
 
   const [isEditable, setIsEditable] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
@@ -181,6 +198,19 @@ export default function Home() {
   const [currentPage, setCurrentPage] = useState(1);
   const [visitedPages, setVisitedPages] = useState(new Set([1]));
 
+  // Worker management states
+  const [workerForm] = Form.useForm();
+  const [workers, setWorkers] = useState([]);
+  const [workerLoading, setWorkerLoading] = useState(false);
+  const [lastWorkerDoc, setLastWorkerDoc] = useState(null);
+  const [totalWorkerDocs, setTotalWorkerDocs] = useState(0);
+  const [workerSearchTerm, setWorkerSearchTerm] = useState("");
+  const [currentWorkerPage, setCurrentWorkerPage] = useState(1);
+  const [visitedWorkerPages, setVisitedWorkerPages] = useState(new Set([1]));
+  const [activeTab, setActiveTab] = useState("1");
+  const [membersFetched, setMembersFetched] = useState(false);
+  const [workersFetched, setWorkersFetched] = useState(false);
+
   const handlePageChange = (page) => {
     if (!visitedPages.has(page)) {
       fetchMembers(true);
@@ -190,9 +220,70 @@ export default function Home() {
     setCurrentPage(page);
   };
 
+  const handleWorkerPageChange = (page) => {
+    if (!visitedWorkerPages.has(page)) {
+      fetchWorkers(true);
+    }
+
+    setVisitedWorkerPages(new Set([...visitedWorkerPages, page]));
+    setCurrentWorkerPage(page);
+  };
+
+  const handleTabChange = (key) => {
+    setActiveTab(key);
+  };
+
+  const handleFetchMembers = async () => {
+    if (!membersFetched) {
+      await fetchTotalDocs();
+      await fetchMembers();
+      setMembersFetched(true);
+    }
+  };
+
+  const handleFetchWorkers = async () => {
+    if (!workersFetched) {
+      await fetchTotalWorkerDocs();
+      await fetchWorkers();
+      setWorkersFetched(true);
+    }
+  };
+
+  const refreshWorkers = async () => {
+    setWorkerLoading(true);
+    try {
+      // Reset pagination state
+      setLastWorkerDoc(null);
+      setCurrentWorkerPage(1);
+      setVisitedWorkerPages(new Set([1]));
+
+      // Fetch fresh data
+      const q = query(
+        collection(db, "workers_member"),
+        where("membership_number", ">=", "0"),
+        orderBy("membership_number"),
+        limit(30)
+      );
+
+      const querySnapshot = await getDocs(q);
+      const workersData = [];
+
+      querySnapshot.forEach((doc) => {
+        workersData.push({ key: doc.id, ...doc.data() });
+      });
+      console.log("refreshed worker data is", workersData);
+
+      setWorkers(workersData);
+      setLastWorkerDoc(querySnapshot.docs[querySnapshot.docs.length - 1]);
+    } catch (error) {
+      message.error("Error refreshing workers");
+    } finally {
+      setWorkerLoading(false);
+    }
+  };
+
   useEffect(() => {
-    fetchTotalDocs(); // Fetch total documents for pagination
-    fetchMembers();
+    // Only fetch requests on initial load
     fetchRequests();
   }, []);
 
@@ -362,6 +453,61 @@ export default function Home() {
     }
   };
 
+  const handleUpdateWorkerPdf = async () => {
+    try {
+      setDownloading(true);
+
+      const canvas = document
+        .getElementById("qrCanvas")
+        ?.querySelector("canvas");
+      if (!canvas) {
+        console.error("QR Code not found!");
+        setDownloading(false);
+        return;
+      }
+
+      const qrBase64 = canvas.toDataURL("image/png");
+
+      const response = await fetch("/api/modify-worker-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          memberName: selectedMemberData.member_name,
+          businessName: selectedMemberData.business_name,
+          ownerName: selectedMemberData.owner_name,
+          membershipNumber: selectedMemberData.membership_number,
+          cnicNumber: selectedMemberData.cnic_number,
+          qrCodeBase64: qrBase64,
+          memberPic: selectedMemberData.photo_url,
+          memberSince: selectedMemberData.member_since,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to modify Worker PDF");
+      }
+
+      // Convert response to Blob
+      const blob = await response.blob();
+      const pdfUrl = URL.createObjectURL(blob);
+
+      // Create a temporary anchor link
+      const a = document.createElement("a");
+      a.href = pdfUrl;
+      a.target = "_blank"; // Open in a new tab
+      a.download = "worker-modified.pdf"; // Force download
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      setDownloading(false);
+      console.log("✅ Worker PDF opened/downloaded successfully!");
+    } catch (error) {
+      console.error("❌ Error:", error.message);
+      setDownloading(false);
+    }
+  };
+
   const columns = [
     { title: "Member Name", dataIndex: "member_name", key: "member_name" },
     {
@@ -386,7 +532,9 @@ export default function Home() {
             style={{ marginRight: 10 }}
             onClick={() => {
               setSelectedMemberData(member);
+              setIsWorkerModal(false);
               setIsVisible(true);
+              console.log("Owner modal opened, isWorkerModal set to false");
             }}
           >
             View
@@ -398,6 +546,7 @@ export default function Home() {
               border: "2px dotted red",
             }}
             onClick={() => {
+              setIsWorkerEdit(false);
               handleEditMember(member);
             }}
           >
@@ -421,6 +570,88 @@ export default function Home() {
                     fetchMembers();
                   } catch (error) {
                     message.error("Error deleting member: " + error.message);
+                  }
+                },
+              });
+            }}
+          >
+            Delete
+          </Button>
+        </>
+      ),
+    },
+  ];
+
+  const workerColumns = [
+    { title: "Worker Name", dataIndex: "member_name", key: "member_name" },
+    {
+      title: "Owner Name",
+      dataIndex: "owner_name",
+      key: "owner_name",
+    },
+    { title: "Phone Number", dataIndex: "phone_number", key: "phone_number" },
+    {
+      title: "Membership Number",
+      dataIndex: "membership_number",
+      key: "membership_number",
+    },
+    { title: "CNIC Number", dataIndex: "cnic_number", key: "cnic_number" },
+    {
+      title: "View Data",
+      key: "view_data",
+      render: (_, worker) => (
+        <>
+          <Button
+            type="primary"
+            style={{ marginRight: 10 }}
+            onClick={() => {
+              setSelectedMemberData(worker);
+              setIsWorkerModal(true);
+              setIsVisible(true);
+              console.log("Worker modal opened, isWorkerModal set to true");
+            }}
+          >
+            View
+          </Button>
+          <Button
+            type="secondary"
+            style={{
+              marginRight: 10,
+              border: "2px dotted red",
+            }}
+            onClick={() => {
+              setIsWorkerEdit(true);
+              handleEditMember(worker);
+            }}
+          >
+            Edit
+          </Button>
+          <Button
+            type="primary"
+            danger
+            onClick={() => {
+              Modal.confirm({
+                title: "Are you sure you want to delete this worker?",
+                content: "This action cannot be undone.",
+                okText: "Yes",
+                okType: "danger",
+                cancelText: "No",
+                onOk: async () => {
+                  try {
+                    const docRef = doc(
+                      db,
+                      "workers_member",
+                      worker.cnic_number
+                    );
+                    await deleteDoc(docRef);
+                    message.success("Worker deleted successfully");
+                    // Auto-refresh worker data if it has been fetched before
+                    if (workersFetched) {
+                      await fetchTotalWorkerDocs();
+                      await refreshWorkers();
+                    }
+                  } catch (error) {
+                    message.error("Error deleting worker: " + error.message);
                   }
                 },
               });
@@ -493,6 +724,67 @@ export default function Home() {
     }
   };
 
+  const onWorkerFinish = async (values) => {
+    setWorkerLoading(true);
+    try {
+      const fileList = values.photo_url?.fileList || [];
+      if (fileList.length === 0) {
+        throw new Error("No file selected");
+      }
+
+      const file = fileList[0].originFileObj;
+      const base64String = await convertToBase64(file);
+
+      // Check if CNIC or Membership Number already exists in workers collection
+      const existingWorkerQuery = query(
+        collection(db, "workers_member"),
+        where("cnic_number", "==", values.cnic_number)
+      );
+      const querySnapshot = await getDocs(existingWorkerQuery);
+
+      const existingMembershipNumberQuery = query(
+        collection(db, "workers_member"),
+        where("membership_number", "==", values.membership_number)
+      );
+      const membershipNumberSnapShot = await getDocs(
+        existingMembershipNumberQuery
+      );
+
+      if (!querySnapshot.empty) {
+        message.error("This CNIC number already exists.");
+        setWorkerLoading(false);
+        return;
+      }
+
+      if (!membershipNumberSnapShot.empty) {
+        message.error("This Membership number already exists.");
+        setWorkerLoading(false);
+        return;
+      }
+
+      const qrcodeUrl = `${QR_CODE_URL}${values.cnic_number}`;
+
+      await setDoc(doc(db, "workers_member", values.cnic_number), {
+        ...values,
+        photo_url: base64String,
+        qrcode_url: qrcodeUrl,
+      });
+
+      message.success("Worker added successfully!");
+      workerForm.resetFields();
+
+      // Auto-refresh worker data if it has been fetched before
+      if (workersFetched) {
+        await fetchTotalWorkerDocs();
+        await refreshWorkers();
+      }
+    } catch (error) {
+      message.error("Error adding worker: " + error.message);
+    } finally {
+      setWorkerLoading(false);
+    }
+  };
+
   const fetchTotalDocs = async () => {
     try {
       const collRef = collection(db, "members");
@@ -502,6 +794,18 @@ export default function Home() {
       setTotalDocs(snapshot.data().count);
     } catch (error) {
       message.error("Error fetching total members count");
+    }
+  };
+
+  const fetchTotalWorkerDocs = async () => {
+    try {
+      const collRef = collection(db, "workers_member");
+      const snapshot = await getCountFromServer(collRef);
+      console.log("size of the worker data is", snapshot.data().count);
+
+      setTotalWorkerDocs(snapshot.data().count);
+    } catch (error) {
+      message.error("Error fetching total workers count");
     }
   };
 
@@ -543,6 +847,44 @@ export default function Home() {
     }
   };
 
+  const fetchWorkers = async (nextPage = false) => {
+    setWorkerLoading(true);
+    try {
+      let q = query(
+        collection(db, "workers_member"),
+        where("membership_number", ">=", "0"),
+        orderBy("membership_number"),
+        startAfter(lastWorkerDoc),
+        limit(30)
+      );
+
+      if (nextPage && lastWorkerDoc) {
+        q = query(
+          collection(db, "workers_member"),
+          where("membership_number", ">=", "0"),
+          orderBy("membership_number"),
+          startAfter(lastWorkerDoc),
+          limit(30)
+        );
+      }
+
+      const querySnapshot = await getDocs(q);
+      const workersData = [];
+
+      querySnapshot.forEach((doc) => {
+        workersData.push({ key: doc.id, ...doc.data() });
+      });
+      console.log("worker data is", workersData);
+
+      setWorkers(nextPage ? [...workers, ...workersData] : workersData);
+      setLastWorkerDoc(querySnapshot.docs[querySnapshot.docs.length - 1]); // Set last document for pagination
+    } catch (error) {
+      message.error("Error fetching workers");
+    } finally {
+      setWorkerLoading(false);
+    }
+  };
+
   const handleSearch = async (value) => {
     setSearchTerm(value);
     if (!value) {
@@ -572,6 +914,35 @@ export default function Home() {
     }
   };
 
+  const handleWorkerSearch = async (value) => {
+    setWorkerSearchTerm(value);
+    if (!value) {
+      fetchWorkers();
+      return;
+    }
+
+    setWorkerLoading(true);
+    try {
+      const q = query(
+        collection(db, "workers_member"),
+        where("membership_number", ">=", value),
+        where("membership_number", "<=", value + "\uf8ff"),
+        orderBy("membership_number"),
+        limit(30)
+      );
+      const querySnapshot = await getDocs(q);
+      const searchResults = [];
+      querySnapshot.forEach((doc) => {
+        searchResults.push({ key: doc.id, ...doc.data() });
+      });
+      setWorkers(searchResults);
+    } catch (error) {
+      message.error("Error searching workers");
+    } finally {
+      setWorkerLoading(false);
+    }
+  };
+
   const convertToBase64 = (file) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -590,7 +961,8 @@ export default function Home() {
   const onEditFormFinish = async (values) => {
     setEditLoading(true);
     try {
-      const docRef = doc(db, "members", values.cnic_number);
+      const collectionName = isWorkerEdit ? "workers_member" : "members";
+      const docRef = doc(db, collectionName, values.cnic_number);
       let updatedPhotoUrl = values.photo_url;
 
       if (values.photo_url?.fileList) {
@@ -603,7 +975,7 @@ export default function Home() {
 
       const qrcodeUrl = `${QR_CODE_URL}${values.cnic_number}`;
 
-      // Update the existing member data
+      // Update the existing data
       await setDoc(
         docRef,
         {
@@ -614,12 +986,26 @@ export default function Home() {
         { merge: true }
       );
 
-      message.success("Member details updated successfully!");
-      form.resetFields();
-      fetchMembers();
+      const successMessage = isWorkerEdit
+        ? "Worker details updated successfully!"
+        : "Member details updated successfully!";
+      message.success(successMessage);
+
+      if (isWorkerEdit) {
+        workerForm.resetFields();
+        // Auto-refresh worker data if it has been fetched before
+        if (workersFetched) {
+          await fetchTotalWorkerDocs();
+          await refreshWorkers();
+        }
+      } else {
+        form.resetFields();
+        fetchMembers();
+      }
+
       setEditLoading(false);
     } catch (error) {
-      message.error("Error updating member: " + error.message);
+      message.error("Error updating: " + error.message);
     } finally {
       setEditLoading(false);
     }
@@ -628,8 +1014,12 @@ export default function Home() {
   return (
     <div className="max-w-6xl mx-auto p-6 bg-white rounded-lg shadow-md">
       <h1 className="text-3xl font-bold mb-6 text-center">ATZ MANAGEMENT</h1>
-      <Tabs defaultActiveKey="1">
-        <TabPane tab="Registration Form" key="1">
+      <Tabs
+        defaultActiveKey="1"
+        activeKey={activeTab}
+        onChange={handleTabChange}
+      >
+        <TabPane tab="Owner Registration Form" key="1">
           <Form
             form={form}
             layout="vertical"
@@ -780,58 +1170,292 @@ export default function Home() {
             </Form.Item>
           </Form>
         </TabPane>
-        <TabPane tab="Members List" key="2">
-          <div className="flex flex-row justify-between items-center mb-4 w-full">
-            <Input
-              placeholder="Search members by name"
-              value={searchTerm}
-              onChange={(e) => handleSearch(e.target.value)}
-              className="w-3/4"
-            />
-            <span className="text-gray-500 text-base whitespace-nowrap">
-              Total Entries: {totalDocs}
-            </span>
-          </div>
+        <TabPane tab="Owner Member List" key="2">
+          {!membersFetched ? (
+            <div className="text-center py-8">
+              <Button
+                type="primary"
+                size="large"
+                onClick={handleFetchMembers}
+                loading={loading}
+              >
+                Fetch Members
+              </Button>
+              <p className="text-gray-500 mt-2">Click to load member data</p>
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-row justify-between items-center mb-4 w-full">
+                <Input
+                  placeholder="Search members by name"
+                  value={searchTerm}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  className="w-3/4"
+                />
+                <span className="text-gray-500 text-base whitespace-nowrap">
+                  Total Entries: {totalDocs}
+                </span>
+              </div>
 
-          <Table
-            columns={columns}
-            dataSource={members}
-            rowKey="key"
-            loading={loading}
-            pagination={{
-              pageSize: 30,
-              total: totalDocs,
-              current: currentPage,
-              onChange: handlePageChange,
-              showSizeChanger: false, // Hide page size dropdown
-              itemRender: (page, type, originalElement) => {
-                if (type === "page") {
-                  const isClickable =
-                    visitedPages.has(page) || page === currentPage + 1;
-                  return (
-                    <button
-                      onClick={() => isClickable && handlePageChange(page)}
-                      disabled={!isClickable}
-                      style={{
-                        margin: "0 5px",
-                        padding: "5px 10px",
-                        cursor: isClickable ? "pointer" : "not-allowed",
-                        background: isClickable ? "#1890ff" : "#ccc",
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: "5px",
-                      }}
-                    >
-                      {page}
-                    </button>
-                  );
-                }
-                return originalElement; // Keep navigation arrows functional
-              },
-            }}
-          />
+              <Table
+                columns={columns}
+                dataSource={members}
+                rowKey="key"
+                loading={loading}
+                pagination={{
+                  pageSize: 30,
+                  total: totalDocs,
+                  current: currentPage,
+                  onChange: handlePageChange,
+                  showSizeChanger: false, // Hide page size dropdown
+                  itemRender: (page, type, originalElement) => {
+                    if (type === "page") {
+                      const isClickable =
+                        visitedPages.has(page) || page === currentPage + 1;
+                      return (
+                        <button
+                          onClick={() => isClickable && handlePageChange(page)}
+                          disabled={!isClickable}
+                          style={{
+                            margin: "0 5px",
+                            padding: "5px 10px",
+                            cursor: isClickable ? "pointer" : "not-allowed",
+                            background: isClickable ? "#1890ff" : "#ccc",
+                            color: "#fff",
+                            border: "none",
+                            borderRadius: "5px",
+                          }}
+                        >
+                          {page}
+                        </button>
+                      );
+                    }
+                    return originalElement; // Keep navigation arrows functional
+                  },
+                }}
+              />
+            </>
+          )}
         </TabPane>
-        <TabPane tab="New Requests" key="3">
+        <TabPane tab="Worker Registration Form" key="3">
+          <Form
+            form={workerForm}
+            layout="vertical"
+            onFinish={onWorkerFinish}
+            className="max-w-3xl mx-auto"
+          >
+            <Form.Item
+              name="photo_url"
+              label="Photo"
+              rules={[{ required: true, message: "Please upload a photo" }]}
+            >
+              <Upload
+                name="photo"
+                listType="picture"
+                maxCount={1}
+                beforeUpload={() => false}
+                onPreview={handlePreview}
+              >
+                <Button icon={<UploadOutlined />}>Upload Photo</Button>
+              </Upload>
+            </Form.Item>
+
+            {imageUrl && (
+              <div style={{ marginBottom: "16px" }}>
+                <Image src={imageUrl} width={200} preview={false} />
+              </div>
+            )}
+
+            <Form.Item
+              name="member_name"
+              label="Worker Name"
+              rules={[{ required: true }]}
+            >
+              <Input />
+            </Form.Item>
+
+            <Form.Item
+              name="father_name"
+              label="Father Name"
+              rules={[{ required: true }]}
+            >
+              <Input />
+            </Form.Item>
+
+            <Form.Item
+              name="cnic_number"
+              label="CNIC Number"
+              rules={[
+                { required: true, message: "CNIC number is required" },
+                {
+                  pattern: /^\d{13}$/,
+                  message: "CNIC number must be exactly 13 digits",
+                },
+              ]}
+            >
+              <Input maxLength={13} placeholder="Enter 13-digit CNIC" />
+            </Form.Item>
+
+            <Form.Item
+              name="phone_number"
+              label="Phone Number"
+              rules={[{ required: true }]}
+            >
+              <Input />
+            </Form.Item>
+
+            <Form.Item
+              name="owner_name"
+              label="Owner Name"
+              rules={[
+                {
+                  required: true,
+                  message: "Please enter the owner name",
+                },
+              ]}
+            >
+              <Input />
+            </Form.Item>
+
+            <Form.Item
+              name="member_category"
+              label="Worker Category"
+              rules={[
+                {
+                  required: true,
+                  message: "Please select the worker category",
+                },
+              ]}
+            >
+              <Select
+                placeholder="Select worker category"
+                options={workerCategories}
+              />
+            </Form.Item>
+
+            <Form.Item
+              name="business_name"
+              label="Business Name"
+              rules={[{ required: true }]}
+            >
+              <Input />
+            </Form.Item>
+
+            <Form.Item
+              name="business_address"
+              label="Business Address"
+              rules={[{ required: true }]}
+            >
+              <Input.TextArea />
+            </Form.Item>
+
+            <Form.Item
+              name="membership_number"
+              label="Membership Number"
+              rules={[{ required: true }]}
+            >
+              <Input />
+            </Form.Item>
+
+            <Form.Item
+              name="member_since"
+              label="Member Since"
+              rules={[{ required: true }]}
+            >
+              <Input />
+            </Form.Item>
+
+            <Form.Item
+              name="home_address"
+              label="Home Address"
+              rules={[{ required: true }]}
+            >
+              <Input.TextArea />
+            </Form.Item>
+
+            <Form.Item>
+              <Button
+                type="primary"
+                htmlType="submit"
+                className="w-full"
+                loading={workerLoading}
+              >
+                Submit
+              </Button>
+            </Form.Item>
+          </Form>
+        </TabPane>
+        <TabPane tab="Worker Member List" key="4">
+          {!workersFetched ? (
+            <div className="text-center py-8">
+              <Button
+                type="primary"
+                size="large"
+                onClick={handleFetchWorkers}
+                loading={workerLoading}
+              >
+                Fetch Workers
+              </Button>
+              <p className="text-gray-500 mt-2">Click to load worker data</p>
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-row justify-between items-center mb-4 w-full">
+                <Input
+                  placeholder="Search workers by name"
+                  value={workerSearchTerm}
+                  onChange={(e) => handleWorkerSearch(e.target.value)}
+                  className="w-3/4"
+                />
+                <span className="text-gray-500 text-base whitespace-nowrap">
+                  Total Entries: {totalWorkerDocs}
+                </span>
+              </div>
+
+              <Table
+                columns={workerColumns}
+                dataSource={workers}
+                rowKey="key"
+                loading={workerLoading}
+                pagination={{
+                  pageSize: 30,
+                  total: totalWorkerDocs,
+                  current: currentWorkerPage,
+                  onChange: handleWorkerPageChange,
+                  showSizeChanger: false, // Hide page size dropdown
+                  itemRender: (page, type, originalElement) => {
+                    if (type === "page") {
+                      const isClickable =
+                        visitedWorkerPages.has(page) ||
+                        page === currentWorkerPage + 1;
+                      return (
+                        <button
+                          onClick={() =>
+                            isClickable && handleWorkerPageChange(page)
+                          }
+                          disabled={!isClickable}
+                          style={{
+                            margin: "0 5px",
+                            padding: "5px 10px",
+                            cursor: isClickable ? "pointer" : "not-allowed",
+                            background: isClickable ? "#1890ff" : "#ccc",
+                            color: "#fff",
+                            border: "none",
+                            borderRadius: "5px",
+                          }}
+                        >
+                          {page}
+                        </button>
+                      );
+                    }
+                    return originalElement; // Keep navigation arrows functional
+                  },
+                }}
+              />
+            </>
+          )}
+        </TabPane>
+        <TabPane tab="New Requests" key="5">
           <Table
             dataSource={requests}
             columns={requestColumns}
@@ -855,7 +1479,10 @@ export default function Home() {
       <Modal
         visible={isVisible}
         title="Personal Information"
-        onCancel={() => setIsVisible(false)}
+        onCancel={() => {
+          setIsVisible(false);
+          setIsWorkerModal(false);
+        }}
         footer={null}
         width={800}
         centered
@@ -879,13 +1506,27 @@ export default function Home() {
                   }}
                 >
                   <p>
-                    <strong>Member Name:</strong>{" "}
+                    <strong>
+                      {isWorkerModal ? "Worker Name:" : "Member Name:"}
+                    </strong>{" "}
                     {selectedMemberData.member_name}
                   </p>
                   <p>
                     <strong>Business Name:</strong>{" "}
                     {selectedMemberData.business_name}
                   </p>
+                  {isWorkerModal && (
+                    <p>
+                      <strong>Owner Name:</strong>{" "}
+                      {selectedMemberData.owner_name}
+                    </p>
+                  )}
+                  {!isWorkerModal && (
+                    <p>
+                      <strong>Business Category:</strong>{" "}
+                      {selectedMemberData.business_category}
+                    </p>
+                  )}
                   <p>
                     <strong>Business Address:</strong>{" "}
                     {selectedMemberData.business_address}
@@ -936,7 +1577,9 @@ export default function Home() {
                 <Button
                   type="primary"
                   icon={<DownloadOutlined />}
-                  onClick={handleUpdatePdf}
+                  onClick={
+                    isWorkerModal ? handleUpdateWorkerPdf : handleUpdatePdf
+                  }
                   loading={downloading}
                 >
                   Download PDF
@@ -949,7 +1592,10 @@ export default function Home() {
       <Modal
         visible={isEditable}
         title="Edit Information"
-        onCancel={() => setIsEditable(false)}
+        onCancel={() => {
+          setIsEditable(false);
+          setIsWorkerEdit(false);
+        }}
         footer={null}
         width={600}
         centered
@@ -1020,37 +1666,72 @@ export default function Home() {
             <Input />
           </Form.Item>
 
-          <Form.Item
-            name="business_category"
-            label="Business Category"
-            rules={[
-              {
-                required: true,
-                message: "Please select the business category",
-              },
-            ]}
-          >
-            <Select
-              placeholder="Select business category"
-              options={businessCategories}
-            />
-          </Form.Item>
+          {!isWorkerEdit ? (
+            <>
+              <Form.Item
+                name="business_category"
+                label="Business Category"
+                rules={[
+                  {
+                    required: true,
+                    message: "Please select the business category",
+                  },
+                ]}
+              >
+                <Select
+                  placeholder="Select business category"
+                  options={businessCategories}
+                />
+              </Form.Item>
 
-          <Form.Item
-            name="member_category"
-            label="Member Category"
-            rules={[
-              {
-                required: true,
-                message: "Please select the member category",
-              },
-            ]}
-          >
-            <Select
-              placeholder="Select member category"
-              options={memberCategories}
-            />
-          </Form.Item>
+              <Form.Item
+                name="member_category"
+                label="Member Category"
+                rules={[
+                  {
+                    required: true,
+                    message: "Please select the member category",
+                  },
+                ]}
+              >
+                <Select
+                  placeholder="Select member category"
+                  options={memberCategories}
+                />
+              </Form.Item>
+            </>
+          ) : (
+            <>
+              <Form.Item
+                name="owner_name"
+                label="Owner Name"
+                rules={[
+                  {
+                    required: true,
+                    message: "Please enter the owner name",
+                  },
+                ]}
+              >
+                <Input />
+              </Form.Item>
+
+              <Form.Item
+                name="member_category"
+                label="Worker Category"
+                rules={[
+                  {
+                    required: true,
+                    message: "Please select the worker category",
+                  },
+                ]}
+              >
+                <Select
+                  placeholder="Select worker category"
+                  options={workerCategories}
+                />
+              </Form.Item>
+            </>
+          )}
 
           <Form.Item
             name="business_name"
